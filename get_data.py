@@ -56,6 +56,7 @@ class App:
         self.clicked_lock = threading.Lock()
 
     def get_data(self):
+        global capture_sleep
         #a captação deve ser feita em intervalos iguais
         try:
             with open(f"data-{time.time()}.csv", "w", newline="") as f:
@@ -68,14 +69,20 @@ class App:
                     "click",
                     "mov_x","mov_y"
                 ])
-                last_m_pos_x = 0
-                last_m_pos_y = 0
+                last_m_pos_x, last_m_pos_y = get_mouse_pos()
                 while self.recording:
                     m_pos_x, m_pos_y = get_mouse_pos()
-                    is_mouse_inside_btn = (self.btn_x <= m_pos_x <= self.btn_x + self.bw and self.btn_y <= m_pos_y <= self.btn_y + self.bh)
-                    
-                    target_middle_x = self.target_x + self.bw/2
-                    target_middle_y = self.target_y + self.bh/2
+
+                    root_x = self.root.winfo_rootx()
+                    root_y = self.root.winfo_rooty()
+
+                    target_middle_x = root_x + self.target_x + self.bw/2
+                    target_middle_y = root_y + self.target_y + self.bh/2
+
+                    btn_global_x = root_x + self.btn_x
+                    btn_global_y = root_y + self.btn_y
+
+                    is_mouse_inside_btn = (btn_global_x <= m_pos_x <= btn_global_x + self.bw and btn_global_y <= m_pos_y <= btn_global_y + self.bh)
 
                     offset_x = (target_middle_x - m_pos_x)/self.width
                     offset_y = (target_middle_y - m_pos_y)/self.height
