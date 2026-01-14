@@ -76,14 +76,12 @@ class App:
                     root_x = self.root.winfo_rootx()
                     root_y = self.root.winfo_rooty()
 
-                    target_middle_x = root_x + self.target_x + self.bw/2
-                    target_middle_y = root_y + self.target_y + self.bh/2
-
                     btn_global_x = root_x + self.btn_x
                     btn_global_y = root_y + self.btn_y
-
                     is_mouse_inside_btn = (btn_global_x <= m_pos_x <= btn_global_x + self.bw and btn_global_y <= m_pos_y <= btn_global_y + self.bh)
 
+                    target_middle_x = root_x + self.target_x
+                    target_middle_y = root_y + self.target_y
                     offset_x = (target_middle_x - m_pos_x)/self.width
                     offset_y = (target_middle_y - m_pos_y)/self.height
                     #A - B = BA

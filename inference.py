@@ -6,7 +6,9 @@ import time
 import ctypes
 import threading
 import keyboard
+import math
 
+MODEL_PATH = "old.keras"
 SHORTCUT_QUIT = 'ctrl+o'
 capture_frequency = 50
 capture_sleep = 1/capture_frequency
@@ -62,7 +64,9 @@ class App:
         #Como interpretar a saída da rede neural
         #desnormalize a saída (mov_x e mov_y)
         #threshold para a saída click
-        model = tf.keras.models.load_model("mouse_rnn.keras")
+        model = tf.keras.models.load_model(MODEL_PATH)
+        thresholds = []
+        biggest_click_treshold = 0
         while True:
             if keyboard.is_pressed(SHORTCUT_QUIT):
                 print("IA finalizada")
@@ -73,28 +77,30 @@ class App:
             root_x = self.root.winfo_rootx()
             root_y = self.root.winfo_rooty()
 
-            target_middle_x = root_x + self.target_x + self.bw/2
-            target_middle_y = root_y + self.target_y + self.bh/2
-
             btn_global_x = root_x + self.btn_x
             btn_global_y = root_y + self.btn_y
-
             is_mouse_inside_btn = (btn_global_x <= m_pos_x <= btn_global_x + self.bw and btn_global_y <= m_pos_y <= btn_global_y + self.bh)
-            # centro do botão
+            
             # inputs (normalizados)
+            target_middle_x = root_x + self.target_x
+            target_middle_y = root_y + self.target_y
             offset_x = (target_middle_x - m_pos_x)/self.width
             offset_y = (target_middle_y - m_pos_y)/self.height
-            inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn]], dtype=tf.float32)
             # inferência
+            inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn]], dtype=tf.float32)
             mov_x_n, mov_y_n, click_p = model.predict(inp, verbose=0)
             # desnormaliza movimento
             mov_x = int(mov_x_n[0][0] * self.width)
             mov_y = int(mov_y_n[0][0] * self.height)
-            click = click_p[0][0] > 0.45
             # threshold de clique
-            print(f"{mov_x}, {mov_y}, {click_p[0][0]}")
-            # print(f"{offset_x}, {offset_y}")
-            mov_mouse(mov_x, mov_y, False)
+            click = click_p[0][0] < 0.01 and is_mouse_inside_btn
+            if click_p[0][0] > biggest_click_treshold:
+                biggest_click_treshold = click_p[0][0]
+            thresholds.append(biggest_click_treshold)
+            #efetuar ação da IA
+            mov_mouse(mov_x, mov_y, click)
+            print(f"{round(click_p[0][0], 3)}, {round(biggest_click_treshold, 3)}, {click}")
+            # print(f"{mov_x}, {mov_y}, {click_p[0][0]}")
             time.sleep(capture_sleep)
 
     def on_resize(self, event):
