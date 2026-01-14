@@ -32,6 +32,7 @@ class App:
         self.canvas = tk.Canvas(self.root, width=self.width, height=self.height, bg="#f0f0f0")
         self.canvas.pack(fill="both", expand=True)
         #random button
+        self.total_clicks = 0
         self.random_btn = tk.Button(
             self.root, 
             text="Clique aqui", 
@@ -64,8 +65,11 @@ class App:
                     "target_x","target_y",
                     "is_inside_btn",
                     "offset_x","offset_y",
-                    "click"
+                    "click",
+                    "mov_x","mov_y"
                 ])
+                last_m_pos_x = 0
+                last_m_pos_y = 0
                 while self.recording:
                     m_pos_x, m_pos_y = get_mouse_pos()
                     is_mouse_inside_btn = (self.btn_x <= m_pos_x <= self.btn_x + self.bw and self.btn_y <= m_pos_y <= self.btn_y + self.bh)
@@ -75,17 +79,23 @@ class App:
 
                     offset_x = (target_middle_x - m_pos_x)/self.width
                     offset_y = (target_middle_y - m_pos_y)/self.height
+                    #A - B = BA
+                    mov_x = (m_pos_x - last_m_pos_x)/self.width
+                    mov_y = (m_pos_y - last_m_pos_y)/self.height
                     #escrever normalizado
                     writer.writerow([
                         m_pos_x, m_pos_y,
                         target_middle_x, target_middle_y, 
                         int(is_mouse_inside_btn),
                         offset_x, offset_y,
-                        int(self.clicked)
+                        int(self.clicked),
+                        mov_x, mov_y
                     ])
                     with self.clicked_lock:
                         if self.clicked:
                             self.clicked = False
+                    last_m_pos_x = m_pos_x
+                    last_m_pos_y = m_pos_y
                     time.sleep(capture_sleep)
         except Exception as e:
             logging.error("Falha na thread", exc_info=True)
@@ -111,6 +121,7 @@ class App:
     def define_random_target(self):
         with self.clicked_lock:
             self.clicked = True
+        self.total_clicks = self.total_clicks + 1
         if not self.recording:
             self.recording = True
             self.start_time = time.time()
@@ -124,7 +135,7 @@ class App:
         self.target_x = self.btn_x + self.bw/2
         self.target_y = self.btn_y + self.bh/2
         self.random_btn.place(x=self.btn_x, y=self.btn_y)
-        print(f"Novo alvo: x={self.btn_x}, y={self.btn_y}")
+        print(f"Novo alvo: x={self.btn_x}, y={self.btn_y}, clicks={self.total_clicks}")
 
 if __name__ == "__main__":
     root = tk.Tk()
