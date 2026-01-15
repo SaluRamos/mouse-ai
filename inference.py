@@ -83,11 +83,12 @@ class App:
         if MODEL_TYPE == ModelType.RNN:
             MODEL_PATH = "models/mouse_rnn.keras"
         model = tf.keras.models.load_model(MODEL_PATH)
-        time_steps = 10
         # Criamos um buffer que mantém apenas os últimos 10 registros para a RNN
+        time_steps = 10
         buffer = deque(maxlen=time_steps)
         for _ in range(time_steps):
             buffer.append([0.0, 0.0, 0.0])
+        # loop de execução
         while True:
             if keyboard.is_pressed(SHORTCUT_QUIT):
                 print("IA finalizada")
