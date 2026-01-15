@@ -9,6 +9,7 @@ import keyboard
 from collections import deque
 import numpy as np
 from enum import Enum
+import math
 
 class ModelType(Enum):
     MLP = 0
@@ -18,8 +19,7 @@ MODEL_PATH = "models/mouse_rnn.keras"
 MODEL_TYPE = ModelType.RNN
 SHORTCUT_QUIT = 'ctrl+o'
 EXECUTE_AI = True
-capture_frequency = 50
-capture_sleep = 1/capture_frequency
+MAX_AI_MOV_MAGNITUDE = 30
 
 class POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -39,6 +39,17 @@ def mov_mouse(mov_x:int, mov_y:int, click:bool) -> None:
     if click:
         SendInput(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         SendInput(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+def vector_magnitude(x:int, y:int) -> float:
+    return (x**2 + y**2)**0.5
+
+def adjust_vector_magnitude(x:int, y:int, desired_magnitude:float) -> tuple[int, int]:
+    actual_magnitude = vector_magnitude(x, y)
+    if actual_magnitude == 0:
+        return 0, 0
+    new_x = (x / actual_magnitude) * desired_magnitude
+    new_y = (y / actual_magnitude) * desired_magnitude
+    return math.ceil(new_x), math.ceil(new_y)
 
 class App:
     
@@ -102,23 +113,25 @@ class App:
             if MODEL_TYPE == ModelType.MLP:
                 inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn]], dtype=tf.float32)
             if MODEL_TYPE == ModelType.RNN:
-                buffer.append([offset_x, offset_y, float(is_mouse_inside_btn)])
+                buffer.append([offset_x, offset_y, is_mouse_inside_btn])
                 inp = np.array([list(buffer)], dtype=np.float32)
             mov_x_n, mov_y_n, click_p = model.predict(inp, verbose=0)
             # desnormaliza movimento
-            mov_x = int(mov_x_n[0][0] * self.width)
-            mov_y = int(mov_y_n[0][0] * self.height)
+            mov_x = math.ceil(mov_x_n[0][0] * self.width)
+            mov_y = math.ceil(mov_y_n[0][0] * self.height)
+            mag = vector_magnitude(mov_x, mov_y)
+            if mag > MAX_AI_MOV_MAGNITUDE:
+                mov_x, mov_y = adjust_vector_magnitude(mov_x, mov_y, MAX_AI_MOV_MAGNITUDE)
             # threshold de clique
             click = False
             if MODEL_TYPE == ModelType.MLP:
                 click = click_p[0][0] < 0.01 
             if MODEL_TYPE == ModelType.RNN:
-                click = click_p[0][0] > 0.4
+                click = click_p[0][0] > 0.2
             #efetuar ação da IA
             if EXECUTE_AI:
                 mov_mouse(mov_x, mov_y, click and is_mouse_inside_btn)
             print(f"{round(mov_x, 3)}, {round(mov_y, 3)}, {click}, {round(click_p[0][0], 3)}")
-            time.sleep(capture_sleep)
 
     def on_resize(self, event):
         if event.widget is self.root:
