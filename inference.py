@@ -6,10 +6,18 @@ import time
 import ctypes
 import threading
 import keyboard
-import math
+from collections import deque
+import numpy as np
+from enum import Enum
 
-MODEL_PATH = "old.keras"
+class ModelType(Enum):
+    MLP = 0
+    RNN = 1
+
+MODEL_PATH = "models/mouse_rnn.keras"
+MODEL_TYPE = ModelType.RNN
 SHORTCUT_QUIT = 'ctrl+o'
+EXECUTE_AI = True
 capture_frequency = 50
 capture_sleep = 1/capture_frequency
 
@@ -39,8 +47,8 @@ class App:
         self.root = root
         self.root.title("Obter dados")
         self.root.bind("<Configure>", self.on_resize)
-        self.width = 200
-        self.height = 200
+        self.width = 800
+        self.height = 800
         self.btn_w = 20
         self.btn_h = 5
         self.root.geometry(f"{self.width}x{self.height}")
@@ -61,12 +69,12 @@ class App:
 
     def ai_thread(self):
         global capture_sleep
-        #Como interpretar a saída da rede neural
-        #desnormalize a saída (mov_x e mov_y)
-        #threshold para a saída click
         model = tf.keras.models.load_model(MODEL_PATH)
-        thresholds = []
-        biggest_click_treshold = 0
+        time_steps = 10
+        # Criamos um buffer que mantém apenas os últimos 10 registros para a RNN
+        buffer = deque(maxlen=time_steps)
+        for _ in range(time_steps):
+            buffer.append([0.0, 0.0, 0.0])
         while True:
             if keyboard.is_pressed(SHORTCUT_QUIT):
                 print("IA finalizada")
@@ -81,26 +89,35 @@ class App:
             btn_global_y = root_y + self.btn_y
             is_mouse_inside_btn = (btn_global_x <= m_pos_x <= btn_global_x + self.bw and btn_global_y <= m_pos_y <= btn_global_y + self.bh)
             
+            target_x = self.btn_x + self.bw/2
+            target_y = self.btn_y + self.bh/2
+
             # inputs (normalizados)
-            target_middle_x = root_x + self.target_x
-            target_middle_y = root_y + self.target_y
+            target_middle_x = root_x + target_x
+            target_middle_y = root_y + target_y
             offset_x = (target_middle_x - m_pos_x)/self.width
             offset_y = (target_middle_y - m_pos_y)/self.height
             # inferência
-            inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn]], dtype=tf.float32)
+            inp = None
+            if MODEL_TYPE == ModelType.MLP:
+                inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn]], dtype=tf.float32)
+            if MODEL_TYPE == ModelType.RNN:
+                buffer.append([offset_x, offset_y, float(is_mouse_inside_btn)])
+                inp = np.array([list(buffer)], dtype=np.float32)
             mov_x_n, mov_y_n, click_p = model.predict(inp, verbose=0)
             # desnormaliza movimento
             mov_x = int(mov_x_n[0][0] * self.width)
             mov_y = int(mov_y_n[0][0] * self.height)
             # threshold de clique
-            click = click_p[0][0] < 0.01 and is_mouse_inside_btn
-            if click_p[0][0] > biggest_click_treshold:
-                biggest_click_treshold = click_p[0][0]
-            thresholds.append(biggest_click_treshold)
+            click = False
+            if MODEL_TYPE == ModelType.MLP:
+                click = click_p[0][0] < 0.01 
+            if MODEL_TYPE == ModelType.RNN:
+                click = click_p[0][0] > 0.4
             #efetuar ação da IA
-            mov_mouse(mov_x, mov_y, click)
-            print(f"{round(click_p[0][0], 3)}, {round(biggest_click_treshold, 3)}, {click}")
-            # print(f"{mov_x}, {mov_y}, {click_p[0][0]}")
+            if EXECUTE_AI:
+                mov_mouse(mov_x, mov_y, click and is_mouse_inside_btn)
+            print(f"{round(mov_x, 3)}, {round(mov_y, 3)}, {click}, {round(click_p[0][0], 3)}")
             time.sleep(capture_sleep)
 
     def on_resize(self, event):
@@ -124,8 +141,6 @@ class App:
         self.bh = self.random_btn.winfo_height()
         self.btn_x = random.randint(0, self.width - self.bw)
         self.btn_y = random.randint(0, self.height - self.bh)
-        self.target_x = self.btn_x + self.bw/2
-        self.target_y = self.btn_y + self.bh/2
         self.random_btn.place(x=self.btn_x, y=self.btn_y)
         print(f"Novo alvo: x={self.btn_x}, y={self.btn_y}, clicks={self.total_clicks}")
 

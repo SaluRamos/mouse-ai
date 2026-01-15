@@ -5,6 +5,7 @@ import time
 import threading
 import ctypes
 import logging
+import keyboard
 
 class POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -14,6 +15,7 @@ def get_mouse_pos():
     ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
     return pt.x, pt.y
 
+SHORTCUT_QUIT = 'ctrl+o'
 capture_frequency = 50
 capture_sleep = 1/capture_frequency
 
@@ -24,8 +26,8 @@ class App:
         self.root = root
         self.root.title("Obter dados")
         self.root.bind("<Configure>", self.on_resize)
-        self.width = 200
-        self.height = 200
+        self.width = 800
+        self.height = 800
         self.btn_w = 20
         self.btn_h = 5
         self.root.geometry(f"{self.width}x{self.height}")
@@ -59,7 +61,7 @@ class App:
         global capture_sleep
         #a captação deve ser feita em intervalos iguais
         try:
-            with open(f"data-{time.time()}.csv", "w", newline="") as f:
+            with open(f"data/data-{time.time()}.csv", "w", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([
                     "pos_x","pos_y",
@@ -71,6 +73,7 @@ class App:
                 ])
                 last_m_pos_x, last_m_pos_y = get_mouse_pos()
                 while self.recording:
+
                     m_pos_x, m_pos_y = get_mouse_pos()
 
                     root_x = self.root.winfo_rootx()
@@ -80,10 +83,17 @@ class App:
                     btn_global_y = root_y + self.btn_y
                     is_mouse_inside_btn = (btn_global_x <= m_pos_x <= btn_global_x + self.bw and btn_global_y <= m_pos_y <= btn_global_y + self.bh)
 
-                    target_middle_x = root_x + self.target_x
-                    target_middle_y = root_y + self.target_y
+                    target_x = self.btn_x + self.bw/2
+                    target_y = self.btn_y + self.bh/2
+
+                    target_middle_x = root_x + target_x
+                    target_middle_y = root_y + target_y
                     offset_x = (target_middle_x - m_pos_x)/self.width
                     offset_y = (target_middle_y - m_pos_y)/self.height
+                    if keyboard.is_pressed(SHORTCUT_QUIT):
+                        print("finalizou captura")
+                        self.recording = False
+                        break
                     #A - B = BA
                     mov_x = (m_pos_x - last_m_pos_x)/self.width
                     mov_y = (m_pos_y - last_m_pos_y)/self.height
@@ -137,8 +147,6 @@ class App:
         self.bh = self.random_btn.winfo_height()
         self.btn_x = random.randint(0, self.width - self.bw)
         self.btn_y = random.randint(0, self.height - self.bh)
-        self.target_x = self.btn_x + self.bw/2
-        self.target_y = self.btn_y + self.bh/2
         self.random_btn.place(x=self.btn_x, y=self.btn_y)
         print(f"Novo alvo: x={self.btn_x}, y={self.btn_y}, clicks={self.total_clicks}")
 

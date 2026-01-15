@@ -1,2 +1,2 @@
-*.csv
-*.keras
+data/*.csv
+models/*.keras
