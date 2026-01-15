@@ -15,8 +15,7 @@ class ModelType(Enum):
     MLP = 0
     RNN = 1
 
-MODEL_PATH = "models/mouse_rnn.keras"
-MODEL_TYPE = ModelType.RNN
+MODEL_TYPE = ModelType.MLP
 SHORTCUT_QUIT = 'ctrl+o'
 EXECUTE_AI = True
 MAX_AI_MOV_MAGNITUDE = 30
@@ -79,7 +78,10 @@ class App:
         self.place_btn_at_center()
 
     def ai_thread(self):
-        global capture_sleep
+        if MODEL_TYPE == ModelType.MLP:
+            MODEL_PATH = "models/mouse_mlp.keras"
+        if MODEL_TYPE == ModelType.RNN:
+            MODEL_PATH = "models/mouse_rnn.keras"
         model = tf.keras.models.load_model(MODEL_PATH)
         time_steps = 10
         # Criamos um buffer que mantém apenas os últimos 10 registros para a RNN
