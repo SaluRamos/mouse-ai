@@ -4,7 +4,7 @@ import glob
 import csv
 import numpy as np
 
-def load_csv_data(path="data-*.csv"):
+def load_csv_data(path="data/data-*.csv"):
     X = []
     y = []
     files = glob.glob(path)
@@ -27,7 +27,6 @@ def load_csv_data(path="data-*.csv"):
                     print("[DEBUG] primeira linha:", X[-1], y[-1])
     X = np.array(X, dtype=np.float32)
     y = np.array(y, dtype=np.float32)
-
     print(f"[INFO] amostras carregadas: {X.shape[0]}")
     print(f"[INFO] X shape: {X.shape}, y shape: {y.shape}")
     return X, y
@@ -47,14 +46,27 @@ def load_csv_data(path="data-*.csv"):
 # Output: mov_x, mov_y, click
 inputs = layers.Input(shape=(3,))
 
-x = layers.Dense(64, activation="relu")(inputs)
-x = layers.Dense(64, activation="relu")(x)
+#base comum
+x = layers.Dense(128, activation="relu")(inputs)
 
-mov_x = layers.Dense(1, name="mov_x")(x)
-mov_y = layers.Dense(1, name="mov_y")(x)
-click = layers.Dense(1, activation="sigmoid", name="click")(x)
+#cabeça de movimento
+x_mov = layers.Dense(64, activation="relu")(x)
+mov_x = layers.Dense(1, name="mov_x")(x_mov)
+mov_y = layers.Dense(1, name="mov_y")(x_mov)
+#cabeça de clique
+x_click = layers.Dense(32, activation="relu")(x)
+click = layers.Dense(1, activation="sigmoid", name="click")(x_click)
 
 model = models.Model(inputs, [mov_x, mov_y, click])
+
+
+
+
+
+
+
+
+
 
 model.compile(
     optimizer="adam",
@@ -64,21 +76,13 @@ model.compile(
         "click": "binary_crossentropy"
     },
     loss_weights={
-        "mov_x": 1.0,
-        "mov_y": 1.0,
-        "click": 0.5
+        "mov_x": 2.0,
+        "mov_y": 2.0,
+        "click": 10.0
     }
 )
 
 model.summary()
-
-
-
-
-
-
-
-
 
 class DebugCallback(tf.keras.callbacks.Callback):
 
@@ -106,4 +110,4 @@ model.fit(
     callbacks=[DebugCallback()]
 )
 
-model.save("mouse_rnn.keras")
+model.save("models/mouse_mlp.keras")
