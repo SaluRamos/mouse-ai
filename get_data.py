@@ -7,17 +7,17 @@ import ctypes
 import logging
 import keyboard
 
-class POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
-def get_mouse_pos():
-    pt = POINT()
-    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-    return pt.x, pt.y
-
 SHORTCUT_QUIT = 'ctrl+o'
 capture_frequency = 50
 capture_sleep = 1/capture_frequency
+
+class POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+def get_mouse_pos() -> tuple[int, int]:
+    pt = POINT()
+    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+    return pt.x, pt.y
 
 class App:
 
