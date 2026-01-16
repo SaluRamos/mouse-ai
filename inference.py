@@ -8,14 +8,12 @@ import threading
 import keyboard
 from collections import deque
 import numpy as np
-from enum import Enum
 import math
+from enums import ModelType
 
-class ModelType(Enum):
-    MLP = 0
-    RNN = 1
 
-MODEL_TYPE = ModelType.MLP
+
+MODEL_TYPE = ModelType.RNN
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
 EXECUTE_AI = True
