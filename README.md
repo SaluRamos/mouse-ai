@@ -4,7 +4,7 @@ AI capable of moving the mouse like a human.
   
 ![preview](readme/video.gif)  
   
-Based on data analysis i was able to indetify this pattern  
+Based on data analysis i was able to indentify this pattern  
 ****(ticks inside btn before click)****  
 ![alt text](readme/image.png)
   
