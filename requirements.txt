@@ -1,3 +1,5 @@
 tensorflow
 numpy
+matplotlib
+scipy
 protobuf==5.28.3

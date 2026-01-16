@@ -11,8 +11,6 @@ import numpy as np
 import math
 from enums import ModelType
 
-
-
 MODEL_TYPE = ModelType.RNN
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
