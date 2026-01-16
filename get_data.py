@@ -82,8 +82,8 @@ class App:
             threading.Thread(target=self.get_data, daemon=True).start()
         self.root.update_idletasks()
         if RANDOMIZE_BTN_SIZE:
-            self.bw = random.randint(10, self.width/5)
-            self.bh = random.randint(10, self.height/5)
+            self.bw = random.randint(10, int(self.width/5))
+            self.bh = random.randint(10, int(self.height/5))
         self.bx = random.randint(0, self.width - self.bw)
         self.by = random.randint(0, self.height - self.bh)
         self.random_btn.place(x=self.bx, y=self.by, width=self.bw, height=self.bh)
