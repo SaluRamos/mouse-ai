@@ -68,7 +68,8 @@ class App:
         if MODEL_TYPE == ModelType.RNN:
             MODEL_PATH = "models/mouse_rnn.keras"
         model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-        btn_size_multiplier = 1
+        btn_size_m = 1
+        inv_btn_size_m = (1 - btn_size_m)
         # Criamos um buffer que mantém apenas os últimos 10 registros para a RNN
         time_steps = 20
         buffer = deque(maxlen=time_steps)
@@ -87,7 +88,8 @@ class App:
 
             btn_global_x = root_x + self.bx
             btn_global_y = root_y + self.by
-            is_mouse_inside_btn = (btn_global_x <= m_pos_x <= btn_global_x + self.bw and btn_global_y <= m_pos_y <= btn_global_y + self.bh)
+            is_mouse_inside_btn = (btn_global_x + self.bw*inv_btn_size_m <= m_pos_x <= btn_global_x + self.bw*btn_size_m and 
+                                   btn_global_y + self.bh*inv_btn_size_m <= m_pos_y <= btn_global_y + self.bh*btn_size_m)
             
             target_x = self.bx + self.bw/2
             target_y = self.by + self.bh/2
@@ -98,8 +100,8 @@ class App:
             offset_x = (target_middle_x - m_pos_x)/self.width
             offset_y = (target_middle_y - m_pos_y)/self.height
 
-            norm_bw = (self.bw/self.width)*btn_size_multiplier
-            norm_bh = (self.bh/self.height)*btn_size_multiplier
+            norm_bw = (self.bw/self.width)*btn_size_m
+            norm_bh = (self.bh/self.height)*btn_size_m
             # inferência
             inp = None
             if MODEL_TYPE == ModelType.MLP:
@@ -114,7 +116,7 @@ class App:
             # threshold de clique
             click = False
             if MODEL_TYPE == ModelType.MLP:
-                click = click_p[0][0] < 0.01 
+                click = click_p[0][0] > 0.01 
             if MODEL_TYPE == ModelType.RNN:
                 click = click_p[0][0] > 0.2
             #efetuar ação da IA
