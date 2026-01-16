@@ -1,43 +1,8 @@
-import tensorflow as tf
 from tensorflow.keras import layers, models
-import glob
-import csv
+from tensorflow.keras.callbacks import EarlyStopping
 import numpy as np
-
-
-def load_csv_data(path="data/data-*.csv"):
-    X = []
-    y = []
-    files = glob.glob(path)
-    removed_lines = 0
-    for file in files:
-        print(f"[INFO] lendo: {file}")
-        with open(file, newline="") as f:
-            reader = csv.DictReader(f)
-            for i, row in enumerate(reader):
-                if float(row["mov_x"]) == 0 and float(row["mov_y"]) == 0:
-                    removed_lines += 1
-                    continue
-                X.append([
-                    float(row["offset_x"]),
-                    float(row["offset_y"]),
-                    float(row["is_inside_btn"]),
-                    float(row["btn_w"]),
-                    float(row["btn_h"])
-                ])
-                y.append([
-                    float(row["mov_x"]),
-                    float(row["mov_y"]),
-                    float(row["click"])
-                ])
-                if i == 0:
-                    print("[DEBUG] primeira linha:", X[-1], y[-1])
-    X = np.array(X, dtype=np.float32)
-    y = np.array(y, dtype=np.float32)
-    print(f"REMOVED LINES WITH MOV 0 = {removed_lines}")
-    print(f"[INFO] amostras carregadas: {X.shape[0]}")
-    print(f"[INFO] X shape: {X.shape}, y shape: {y.shape}")
-    return X, y
+from train_utils import load_csv_data, DebugCallback
+from enums import ModelType
 
 def create_sequences(X, y, time_steps:int):
     Xs, ys_mov_x, ys_mov_y, ys_click = [], [], [], []
@@ -49,7 +14,7 @@ def create_sequences(X, y, time_steps:int):
         ys_click.append(y[i + time_steps][2])
     return np.array(Xs), [np.array(ys_mov_x), np.array(ys_mov_y), np.array(ys_click)]
 
-X, y = load_csv_data()
+X, y = load_csv_data(ModelType.RNN)
 X_array = np.array(X)
 y_array = np.array(y)
 time_steps = 20
@@ -77,22 +42,13 @@ model.compile(
     loss_weights={
         "mov_x": 1.0,
         "mov_y": 1.0,
-        "click": 3.0
+        "click": 5.0
     }
 )
 
+early_stop = EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
+
 model.summary()
-
-class DebugCallback(tf.keras.callbacks.Callback):
-
-    def on_epoch_end(self, epoch, logs=None):
-        print(
-            f"[EPOCH {epoch+1}] "
-            f"mov_x={logs['mov_x_loss']:.4f} | "
-            f"mov_y={logs['mov_y_loss']:.4f} | "
-            f"click={logs['click_loss']:.4f} | "
-            f"total={logs['loss']:.4f}"
-        )
 
 model.fit(
     X_seq,
@@ -101,10 +57,10 @@ model.fit(
         "mov_y": y_seqs[1],
         "click": y_seqs[2]
     },
-    epochs=15,
+    epochs=120,
     batch_size=64,
     shuffle=True,
-    callbacks=[DebugCallback()]
+    callbacks=[DebugCallback(), early_stop]
 )
 
 model.save("models/mouse_rnn.keras")
