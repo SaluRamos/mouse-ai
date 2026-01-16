@@ -15,11 +15,10 @@ class ModelType(Enum):
     MLP = 0
     RNN = 1
 
-MODEL_TYPE = ModelType.RNN
+MODEL_TYPE = ModelType.MLP
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
 EXECUTE_AI = True
-MAX_AI_MOV_MAGNITUDE = 30
 
 class POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -39,17 +38,6 @@ def mov_mouse(mov_x:int, mov_y:int, click:bool) -> None:
     if click:
         SendInput(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         SendInput(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-
-def vector_magnitude(x:int, y:int) -> float:
-    return (x**2 + y**2)**0.5
-
-def adjust_vector_magnitude(x:int, y:int, desired_magnitude:float) -> tuple[int, int]:
-    actual_magnitude = vector_magnitude(x, y)
-    if actual_magnitude == 0:
-        return 0, 0
-    new_x = (x / actual_magnitude) * desired_magnitude
-    new_y = (y / actual_magnitude) * desired_magnitude
-    return math.ceil(new_x), math.ceil(new_y)
 
 class App:
     
@@ -80,7 +68,7 @@ class App:
         if MODEL_TYPE == ModelType.RNN:
             MODEL_PATH = "models/mouse_rnn.keras"
         model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-        btn_size_multiplier = 0.7
+        btn_size_multiplier = 1
         # Criamos um buffer que mantém apenas os últimos 10 registros para a RNN
         time_steps = 20
         buffer = deque(maxlen=time_steps)
@@ -123,9 +111,6 @@ class App:
             # desnormaliza movimento
             mov_x = math.ceil(mov_x_n[0][0] * self.width)
             mov_y = math.ceil(mov_y_n[0][0] * self.height)
-            mag = vector_magnitude(mov_x, mov_y)
-            if mag > MAX_AI_MOV_MAGNITUDE:
-                mov_x, mov_y = adjust_vector_magnitude(mov_x, mov_y, MAX_AI_MOV_MAGNITUDE)
             # threshold de clique
             click = False
             if MODEL_TYPE == ModelType.MLP:
@@ -135,7 +120,7 @@ class App:
             #efetuar ação da IA
             if EXECUTE_AI:
                 mov_mouse(mov_x, mov_y, click and is_mouse_inside_btn)
-            print(f"mov_x={round(mov_x, 3)}, mov_y{round(mov_y, 3)}, inside_btn={is_mouse_inside_btn}, click={round(click_p[0][0], 3)}")
+            print(f"mov_x={round(mov_x, 3)}, mov_y={round(mov_y, 3)}, inside_btn={is_mouse_inside_btn}, click={round(click_p[0][0], 3)}")
 
     def on_resize(self, event):
         if event.widget is self.root:
