@@ -8,15 +8,21 @@ def load_csv_data(path="data/data-*.csv"):
     X = []
     y = []
     files = glob.glob(path)
+    removed_lines = 0
     for file in files:
         print(f"[INFO] lendo: {file}")
         with open(file, newline="") as f:
             reader = csv.DictReader(f)
             for i, row in enumerate(reader):
+                if float(row["mov_x"]) == 0 and float(row["mov_y"]) == 0:
+                    removed_lines += 1
+                    continue
                 X.append([
                     float(row["offset_x"]),
                     float(row["offset_y"]),
-                    float(row["is_inside_btn"])
+                    float(row["is_inside_btn"]),
+                    float(row["btn_w"]),
+                    float(row["btn_h"])
                 ])
                 y.append([
                     float(row["mov_x"]),
@@ -27,46 +33,33 @@ def load_csv_data(path="data/data-*.csv"):
                     print("[DEBUG] primeira linha:", X[-1], y[-1])
     X = np.array(X, dtype=np.float32)
     y = np.array(y, dtype=np.float32)
+    print(f"REMOVED LINES WITHH MOV 0 = {removed_lines}")
     print(f"[INFO] amostras carregadas: {X.shape[0]}")
     print(f"[INFO] X shape: {X.shape}, y shape: {y.shape}")
     return X, y
 
-
-
-
-
-
-
-
-
-
-
-
-# Input: offset_x, offset_y, is_inside_btn
-# Output: mov_x, mov_y, click
-inputs = layers.Input(shape=(3,))
+inputs = layers.Input(shape=(5,))
 
 #base comum
 x = layers.Dense(128, activation="relu")(inputs)
-
 #cabeça de movimento
 x_mov = layers.Dense(64, activation="relu")(x)
 mov_x = layers.Dense(1, name="mov_x")(x_mov)
 mov_y = layers.Dense(1, name="mov_y")(x_mov)
-#cabeça de clique
 x_click = layers.Dense(32, activation="relu")(x)
 click = layers.Dense(1, activation="sigmoid", name="click")(x_click)
-
 model = models.Model(inputs, [mov_x, mov_y, click])
 
-
-
-
-
-
-
-
-
+def penalty_static_loss(y_true, y_pred):
+    mse = tf.math.square(y_true - y_pred)
+    # Penaliza se o valor real for alto mas o modelo prever algo perto de zero
+    # Ou se o modelo simplesmente prever valores muito baixos no geral
+    penalty_weight = 2.0  # Aumente este valor para penalizar mais
+    # Condição: se o valor previsto for quase zero (ex: < 0.1) 
+    # e o real for significativo, aumentamos o erro.
+    is_static_prediction = tf.cast(tf.abs(y_pred) < 0.1, tf.float32)
+    
+    return tf.reduce_mean(mse + (is_static_prediction * penalty_weight * mse))
 
 model.compile(
     optimizer="adam",
@@ -76,9 +69,9 @@ model.compile(
         "click": "binary_crossentropy"
     },
     loss_weights={
-        "mov_x": 2.0,
-        "mov_y": 2.0,
-        "click": 10.0
+        "mov_x": 1.0,
+        "mov_y": 1.0,
+        "click": 3.0
     }
 )
 

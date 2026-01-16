@@ -15,8 +15,9 @@ class ModelType(Enum):
     MLP = 0
     RNN = 1
 
-MODEL_TYPE = ModelType.MLP
+MODEL_TYPE = ModelType.RNN
 SHORTCUT_QUIT = 'ctrl+o'
+RANDOMIZE_BTN_SIZE = True
 EXECUTE_AI = True
 MAX_AI_MOV_MAGNITUDE = 30
 
@@ -59,35 +60,32 @@ class App:
         self.root.bind("<Configure>", self.on_resize)
         self.width = 800
         self.height = 800
-        self.btn_w = 20
-        self.btn_h = 5
         self.root.geometry(f"{self.width}x{self.height}")
-        self.canvas = tk.Canvas(self.root, width=self.width, height=self.height, bg="#f0f0f0")
-        self.canvas.pack(fill="both", expand=True)
+        self.bw = 40
+        self.bh = 20
         #random button
         self.total_clicks = 0
         self.random_btn = tk.Button(
             self.root, 
-            text="Clique aqui", 
-            padx=self.btn_w,
-            pady=self.btn_h,
+            text="Start",
+            font=("Arial", 10),
             command=self.define_random_target,
-            bg="green",
-            compound="c"
+            bg="green"
         )
-        self.place_btn_at_center()
+        self.random_btn.place(x=0, y=0, width=self.bw, height=self.bh)
 
     def ai_thread(self):
         if MODEL_TYPE == ModelType.MLP:
             MODEL_PATH = "models/mouse_mlp.keras"
         if MODEL_TYPE == ModelType.RNN:
             MODEL_PATH = "models/mouse_rnn.keras"
-        model = tf.keras.models.load_model(MODEL_PATH)
+        model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+        btn_size_multiplier = 0.7
         # Criamos um buffer que mantém apenas os últimos 10 registros para a RNN
-        time_steps = 10
+        time_steps = 20
         buffer = deque(maxlen=time_steps)
         for _ in range(time_steps):
-            buffer.append([0.0, 0.0, 0.0])
+            buffer.append([0.0, 0.0, 0.0, 0.0, 0.0])
         # loop de execução
         while True:
             if keyboard.is_pressed(SHORTCUT_QUIT):
@@ -99,24 +97,27 @@ class App:
             root_x = self.root.winfo_rootx()
             root_y = self.root.winfo_rooty()
 
-            btn_global_x = root_x + self.btn_x
-            btn_global_y = root_y + self.btn_y
+            btn_global_x = root_x + self.bx
+            btn_global_y = root_y + self.by
             is_mouse_inside_btn = (btn_global_x <= m_pos_x <= btn_global_x + self.bw and btn_global_y <= m_pos_y <= btn_global_y + self.bh)
             
-            target_x = self.btn_x + self.bw/2
-            target_y = self.btn_y + self.bh/2
+            target_x = self.bx + self.bw/2
+            target_y = self.by + self.bh/2
 
             # inputs (normalizados)
             target_middle_x = root_x + target_x
             target_middle_y = root_y + target_y
             offset_x = (target_middle_x - m_pos_x)/self.width
             offset_y = (target_middle_y - m_pos_y)/self.height
+
+            norm_bw = (self.bw/self.width)*btn_size_multiplier
+            norm_bh = (self.bh/self.height)*btn_size_multiplier
             # inferência
             inp = None
             if MODEL_TYPE == ModelType.MLP:
-                inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn]], dtype=tf.float32)
+                inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn, norm_bw, norm_bh]], dtype=tf.float32)
             if MODEL_TYPE == ModelType.RNN:
-                buffer.append([offset_x, offset_y, is_mouse_inside_btn])
+                buffer.append([offset_x, offset_y, is_mouse_inside_btn, norm_bw, norm_bh])
                 inp = np.array([list(buffer)], dtype=np.float32)
             mov_x_n, mov_y_n, click_p = model.predict(inp, verbose=0)
             # desnormaliza movimento
@@ -134,31 +135,32 @@ class App:
             #efetuar ação da IA
             if EXECUTE_AI:
                 mov_mouse(mov_x, mov_y, click and is_mouse_inside_btn)
-            print(f"{round(mov_x, 3)}, {round(mov_y, 3)}, {click}, {round(click_p[0][0], 3)}")
+            print(f"mov_x={round(mov_x, 3)}, mov_y{round(mov_y, 3)}, inside_btn={is_mouse_inside_btn}, click={round(click_p[0][0], 3)}")
 
     def on_resize(self, event):
         if event.widget is self.root:
             self.width = event.width
             self.height = event.height
-            self.place_btn_at_center()
+            if not self.started:
+                self.place_btn_at_center()
 
     def place_btn_at_center(self):
-        self.bw = self.random_btn.winfo_width()
-        self.bh = self.random_btn.winfo_height()
-        self.random_btn.place(x=(self.width/2) - self.btn_w*2, y=(self.height/2) - self.btn_h)
+        self.random_btn.place(x=(self.width - self.bw)/2 , y=(self.height - self.bh)/2, width=self.bw, height=self.bh)
 
     def define_random_target(self):
         self.total_clicks = self.total_clicks + 1
         if not self.started:
             self.started = True
             threading.Thread(target=self.ai_thread, daemon=True).start()
+            self.random_btn.config(text="X", bg="red")
         self.root.update_idletasks()
-        self.bw = self.random_btn.winfo_width()
-        self.bh = self.random_btn.winfo_height()
-        self.btn_x = random.randint(0, self.width - self.bw)
-        self.btn_y = random.randint(0, self.height - self.bh)
-        self.random_btn.place(x=self.btn_x, y=self.btn_y)
-        print(f"Novo alvo: x={self.btn_x}, y={self.btn_y}, clicks={self.total_clicks}")
+        if RANDOMIZE_BTN_SIZE:
+            self.bw = random.randint(10, self.width/5)
+            self.bh = random.randint(10, self.height/5)
+        self.bx = random.randint(0, self.width - self.bw)
+        self.by = random.randint(0, self.height - self.bh)
+        self.random_btn.place(x=self.bx, y=self.by, width=self.bw, height=self.bh)
+        print(f"Novo alvo: x={self.bx}, y={self.by} w={self.bw}, h={self.bh}, clicks={self.total_clicks}")
 
 if __name__ == "__main__":
     root = tk.Tk()
