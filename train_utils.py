@@ -5,7 +5,6 @@ import numpy as np
 import math
 import csv
 import glob
-from enums import ModelType
 
 def calc_vec_magnitude(v:list) -> float:
     return math.sqrt(v[0]**2 + v[1]**2)
@@ -18,7 +17,7 @@ def calc_degree_btw_vecs(v1:list, v2:list) -> float:
     cos_theta = max(-1, min(1, dot / (mag1 * mag2)))
     return math.degrees(math.acos(cos_theta))
 
-def load_csv_data(model_type:ModelType):
+def load_csv_data(filter_mov0:bool, filter_big_degree:bool):
     X = []
     y = []
     path = "data/data-*.csv"
@@ -31,18 +30,14 @@ def load_csv_data(model_type:ModelType):
         with open(file, newline="") as f:
             reader = csv.DictReader(f)
             for i, row in enumerate(reader):
-                if model_type == ModelType.MLP:
-                    #não remover clicks
-                    if not int(row["click"]) == 1:
-                        #penalizar cursor parado
-                        #escala: 1 = 800 px, 0.1 = 80px, 0.01 = 8px, 0.005 = 4px
-                        if calc_vec_magnitude([float(row["mov_x"]), float(row["mov_y"])]) < 0.0025:
-                            removed_lines_with_low_mov += 1
-                            continue
-                        #penalizar direção oposta ao alvo
-                        if calc_degree_btw_vecs([float(row["mov_x"]), float(row["mov_y"])], [float(row["offset_x"]), float(row["offset_y"])]) > 120.0:
-                            removed_lines_with_big_degree += 1
-                            continue
+                #penalizar cursor parado
+                if filter_mov0 and float(row["mov_x"]) == 0 and float(row["mov_y"]) == 0:
+                    removed_lines_with_low_mov += 1
+                    continue
+                #penalizar direção oposta ao alvo
+                if filter_big_degree and calc_degree_btw_vecs([float(row["mov_x"]), float(row["mov_y"])], [float(row["offset_x"]), float(row["offset_y"])]) > 120.0:
+                    removed_lines_with_big_degree += 1
+                    continue
                 if int(row["click"]) == 1:
                     rows_with_click += 1
                 X.append([
@@ -59,8 +54,9 @@ def load_csv_data(model_type:ModelType):
                 ])
     X = np.array(X, dtype=np.float32)
     y = np.array(y, dtype=np.float32)
-    if model_type == ModelType.MLP:
+    if filter_mov0:
         print(f"REMOVED LINES WITH LOW MOV = {removed_lines_with_low_mov}")
+    if filter_big_degree:
         print(f"REMOVED LINES WITH BIG DEGREE = {removed_lines_with_big_degree}")
     print(f"ROWS WITH CLICK = {rows_with_click}")
     print(f"TOTAL ROWS: {X.shape[0]}")
@@ -71,8 +67,10 @@ class DebugCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         print(
             f"[EPOCH {epoch+1}] "
+            f"total={logs['loss']:.4f}"
             f"mov_x={logs['mov_x_loss']:.4f} | "
             f"mov_y={logs['mov_y_loss']:.4f} | "
-            f"click={logs['click_loss']:.4f} | "
-            f"total={logs['loss']:.4f}"
         )
+
+print(tf.config.list_physical_devices('GPU'))
+print("Cuda Disponível:", tf.test.is_built_with_cuda())

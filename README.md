@@ -40,6 +40,8 @@ target_y_root = root_y + target_y
 is_mouse_inside_btn = None
 offset_x = None
 offset_y = None
+ticks_inside_btn = 0
+next_ticks_to_click = random_ticks_inside_btn()
 
 for _ in range(MAX_STEPS):
 
@@ -59,16 +61,23 @@ for _ in range(MAX_STEPS):
         offset_x = (target_x - m_pos_x)/window_width
         offset_y = (target_y - m_pos_y)/window_height
 
+    if is_mouse_inside_btn:
+        ticks_inside_btn += 1
+
+    if ticks_inside_btn > 0 and not is_mouse_inside_btn:
+        ticks_inside_btn = 0
+
     inp = tf.convert_to_tensor([[offset_x, offset_y, is_mouse_inside_btn, norm_bw, norm_bh]], dtype=tf.float32)
-    mov_x_n, mov_y_n, click_p = model.predict(inp, verbose=0)
+    mov_x_n, mov_y_n = model.predict(inp, verbose=0)
 
     mov_x = math.ceil(mov_x_n[0][0] * window_width)
     mov_y = math.ceil(mov_y_n[0][0] * window_height)
 
-    click = click_p[0][0] > CLICK_TRESHOLD and is_mouse_inside_btn
-
-    mov_mouse(mov_x, mov_y, click) #your function that moves the mouse
-    if click:
+    mov_mouse(mov_x, mov_y) #your function that moves the mouse
+    if ticks_inside_btn >= next_ticks_to_click and is_mouse_inside_btn:
+        click_mouse()
+        next_ticks_to_click = random_ticks_inside_btn()
+        ticks_inside_btn = 0
         break
 
 ```
@@ -102,6 +111,8 @@ target_y_root = root_y + target_y
 is_mouse_inside_btn = None
 offset_x = None
 offset_y = None
+ticks_inside_btn = 0
+next_ticks_to_click = random_ticks_inside_btn()
 
 for _ in range(MAX_STEPS):
 
@@ -121,17 +132,24 @@ for _ in range(MAX_STEPS):
         offset_x = (target_x - m_pos_x)/window_width
         offset_y = (target_y - m_pos_y)/window_height
 
+    if is_mouse_inside_btn:
+        ticks_inside_btn += 1
+
+    if ticks_inside_btn > 0 and not is_mouse_inside_btn:
+        ticks_inside_btn = 0
+
     buffer.append([offset_x, offset_y, is_mouse_inside_btn, norm_bw, norm_bh])
     inp = np.array([list(buffer)], dtype=np.float32)
-    mov_x_n, mov_y_n, click_p = model.predict(inp, verbose=0)
+    mov_x_n, mov_y_n = model.predict(inp, verbose=0)
 
     mov_x = math.ceil(mov_x_n[0][0] * window_width)
     mov_y = math.ceil(mov_y_n[0][0] * window_height)
 
-    click = click_p[0][0] > CLICK_TRESHOLD and is_mouse_inside_btn
-
-    mov_mouse(mov_x, mov_y, click) #your function that moves the mouse
-    if click:
+    mov_mouse(mov_x, mov_y) #your function that moves the mouse
+    if ticks_inside_btn >= next_ticks_to_click and is_mouse_inside_btn:
+        click_mouse()
+        next_ticks_to_click = random_ticks_inside_btn()
+        ticks_inside_btn = 0
         break
 
 ```
@@ -151,7 +169,7 @@ Please, dont hesitate to colaborate with the project. Give your ⭐
 ### Model
   
 ****Input**** = offset_x_from_target, offset_y_from_target, is_inside_btn, button_width, button_heigth  
-****Output**** = mov_x, mov_y, click  
+****Output**** = mov_x, mov_y  
 
 ### Articles
 
