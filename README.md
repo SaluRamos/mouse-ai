@@ -13,7 +13,7 @@ This is equivalent to
 ![alt text](readme/image2.png)  
   
 Viewing mouse paths  
-![alt text](readme/image2.png)  
+![alt text](readme/image3.png)  
   
 ### Quickstart
 
