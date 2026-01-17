@@ -11,8 +11,7 @@ import logging
 
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
-capture_frequency = 50
-capture_sleep = 1/capture_frequency
+capture_sleep = 1 #millisecond
 
 class POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -98,8 +97,9 @@ class App:
             with open(f"data/data-{time.time()}.csv", "w", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([
-                    "pos_x","pos_y",
-                    "target_x","target_y",
+                    "global_pos_x","global_pos_y",
+                    "root_x","root_y",
+                    "window_width","window_height",
                     "is_inside_btn",
                     "offset_x","offset_y",
                     "click",
@@ -107,7 +107,17 @@ class App:
                     "btn_w","btn_h"
                 ])
                 last_m_pos_x, last_m_pos_y = get_mouse_pos()
+
+                captures = 0
+                last_capture = time.time()
+
                 while self.recording:
+                    captures += 1
+                    now = time.time()
+                    if now - last_capture >= 1:
+                        print(f"CAPTURES LAST SEC: {captures}")
+                        captures = 0
+                        last_capture = now
 
                     m_pos_x, m_pos_y = get_mouse_pos()
 
@@ -138,7 +148,8 @@ class App:
                     #escrever normalizado
                     writer.writerow([
                         m_pos_x, m_pos_y,
-                        target_middle_x, target_middle_y, 
+                        root_x,root_y,
+                        self.width, self.height,
                         int(is_mouse_inside_btn),
                         offset_x, offset_y,
                         int(self.clicked),
@@ -150,7 +161,7 @@ class App:
                             self.clicked = False
                     last_m_pos_x = m_pos_x
                     last_m_pos_y = m_pos_y
-                    time.sleep(capture_sleep)
+                    ctypes.windll.kernel32.Sleep(capture_sleep)
         except Exception as e:
             logging.error("Falha na thread", exc_info=True)
 
