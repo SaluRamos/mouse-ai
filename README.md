@@ -177,3 +177,10 @@ Please, dont hesitate to colaborate with the project. Give your ⭐
 ### Articles
 
 [DMTG: A Human-Like Mouse Trajectory Generation Bot Based on Entropy-Controlled Diffusion Networks](https://arxiv.org/html/2410.18233v1)
+
+### TODO
+
+- there is no point in sending 'is_inside_btn' and 'btn_width'/'btn_height' at the same time. 'is_inside_btn' is implicit at btn size information
+- analyze data to get a distribution of how many ticks a path normally takes.
+- separate data in sequential.
+- implement GAN.
