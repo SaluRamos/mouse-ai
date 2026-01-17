@@ -9,9 +9,12 @@ Based on data analysis i was able to indentify this pattern
   
 ![alt text](readme/image.png)  
   
-This is equivalent to
-![alt text](readme/image2.png)
-
+This is equivalent to  
+![alt text](readme/image2.png)  
+  
+Viewing mouse paths  
+![alt text](readme/image2.png)  
+  
 ### Quickstart
 
 - download the model .keras
