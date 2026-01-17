@@ -61,7 +61,6 @@ def print_sorted_dict(data) -> None:
         print(f"ticks = {ticks}, amount = {data[ticks]}")
 
 def random_ticks_inside_btn(shape:float=10.53369, loc:float=-0.93502, scale:float=0.80039) -> int:
-    # r = stats.gamma.rvs(shape, loc=loc, scale=scale)
     r = random.gammavariate(shape, scale)
     r += loc
     return max(0, round(r))
