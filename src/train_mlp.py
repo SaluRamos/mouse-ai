@@ -35,10 +35,7 @@ model.summary()
 X, y = load_csv_data(True, True)
 
 #continuar treinamento do modelo anterior
-# model = load_model("models/mouse_rnn_300e.keras")
-batch_size = 16
-print(f"batch_size={batch_size}")
-time.sleep(5)
+# model = load_model("models/mouse_mlp.keras")
 
 model.fit(
     X,
@@ -47,7 +44,7 @@ model.fit(
         "mov_y": y[:,1]
     },
     epochs=50, #10 is low, 20 is ok
-    batch_size=batch_size,
+    batch_size=16,
     shuffle=True,
     callbacks=[DebugCallback(), early_stop]
 )

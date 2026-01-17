@@ -11,7 +11,12 @@ import logging
 
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
-capture_sleep = 1 #millisecond
+
+#125Hz é taxa de atualização padrão de mouses
+#mas os mecanismo de detecção de bots usam o 'mousemove' do javascript
+#que costuma ser disparado usando a informação do monitor, na maioria dos casos 60Hz
+TARGET_HZ = 60
+PERIOD = 1.0 / TARGET_HZ
 
 class POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -107,17 +112,9 @@ class App:
                     "btn_w","btn_h"
                 ])
                 last_m_pos_x, last_m_pos_y = get_mouse_pos()
-
-                captures = 0
-                last_capture = time.time()
+                next_time = time.perf_counter()
 
                 while self.recording:
-                    captures += 1
-                    now = time.time()
-                    if now - last_capture >= 1:
-                        print(f"CAPTURES LAST SEC: {captures}")
-                        captures = 0
-                        last_capture = now
 
                     m_pos_x, m_pos_y = get_mouse_pos()
 
@@ -161,7 +158,11 @@ class App:
                             self.clicked = False
                     last_m_pos_x = m_pos_x
                     last_m_pos_y = m_pos_y
-                    ctypes.windll.kernel32.Sleep(capture_sleep)
+
+                    next_time += PERIOD
+                    sleep_time = next_time - time.perf_counter()
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
         except Exception as e:
             logging.error("Falha na thread", exc_info=True)
 
