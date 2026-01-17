@@ -54,14 +54,13 @@ def get_ticks_inside_btn_until_click() -> None:
     pdf = stats.gamma.pdf(xx, *params)
     pdf_scaled = pdf*len(values)
     plt.plot(xx, pdf_scaled, linewidth=2, color="#cf8e00")
-
     plt.show()
 
-def print_sorted_dict(data):
+def print_sorted_dict(data) -> None:
     for ticks in sorted(data.keys()):
-        print(f"Ticks: {ticks} - Ocorrências: {data[ticks]}")
+        print(f"ticks = {ticks}, amount = {data[ticks]}")
 
-def random_ticks_inside_btn(shape:float=10.53369, loc:float=-0.93502, scale:float=0.80039):
+def random_ticks_inside_btn(shape:float=10.53369, loc:float=-0.93502, scale:float=0.80039) -> int:
     # r = stats.gamma.rvs(shape, loc=loc, scale=scale)
     r = random.gammavariate(shape, scale)
     r += loc
@@ -70,7 +69,7 @@ def random_ticks_inside_btn(shape:float=10.53369, loc:float=-0.93502, scale:floa
 if __name__ == "__main__":
     get_ticks_inside_btn_until_click()
     print("----------------")
-    print("Gerando 10K numeros aleatorios com base na distribuição")
+    print("Gerando numeros aleatorios com base na distribuição")
     data = {}
     for i in range(100000):
         value = random_ticks_inside_btn()
