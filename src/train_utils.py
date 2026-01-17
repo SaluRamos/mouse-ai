@@ -1,5 +1,5 @@
 #modules
-from src.utils import calc_degree_btw_vecs, calc_vec_magnitude
+from utils import calc_degree_btw_vecs, calc_vec_magnitude
 #libs
 import tensorflow as tf
 import numpy as np

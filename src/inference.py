@@ -1,16 +1,17 @@
+#modules
+from enums import ModelType
+from ticks_inside_btn_until_click import random_ticks_inside_btn
+#libs
 import tensorflow as tf
+import keyboard
+import numpy as np
+#native libs
 import tkinter as tk
 import random
-import csv
-import time
 import ctypes
 import threading
-import keyboard
 from collections import deque
-import numpy as np
 import math
-from src.enums import ModelType
-from src.ticks_inside_btn_until_click import random_ticks_inside_btn
 
 MODEL_TYPE = ModelType.MLP
 SHORTCUT_QUIT = 'ctrl+o'

@@ -1,5 +1,5 @@
 #modules
-from src.train_utils import load_csv_data, DebugCallback
+from train_utils import load_csv_data, DebugCallback
 #libs
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping

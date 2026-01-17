@@ -1,11 +1,13 @@
+#libs
 import tkinter as tk
+import keyboard
+#native libs
 import random
 import csv
 import time
 import threading
 import ctypes
 import logging
-import keyboard
 
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
