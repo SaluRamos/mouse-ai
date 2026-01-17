@@ -9,8 +9,8 @@ import keyboard
 from collections import deque
 import numpy as np
 import math
-from enums import ModelType
-from data_collection import random_ticks_inside_btn
+from src.enums import ModelType
+from src.ticks_inside_btn_until_click import random_ticks_inside_btn
 
 MODEL_TYPE = ModelType.MLP
 SHORTCUT_QUIT = 'ctrl+o'
