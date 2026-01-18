@@ -4,17 +4,22 @@ AI capable of moving the mouse like a human.
   
 ![preview](readme/video.gif)  
   
-Based on data analysis i was able to indentify this pattern  
-****(ticks inside btn before click)****  
-  
+### Data Analysis (Patterns)
+
+ticks inside btn before click:  
 ![alt text](readme/image.png)  
   
-This is equivalent to  
+This is equivalent to:  
 ![alt text](readme/image2.png)  
   
-Viewing mouse paths  
+Visualizing mouse paths  
 ![alt text](readme/image3.png)  
+
+Ticks per path:
+![alt text](readme/image4.png)
   
+This is equivalent to:  
+
 ### Quickstart
 
 - download the model .keras
