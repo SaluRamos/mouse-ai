@@ -45,6 +45,16 @@ class App:
             bg="#f0f0f0"
         )
         self.timer_lbl.place(relx=0.5, y=10, anchor="n")
+        #next random button
+        self.next_random_btn = tk.Button(
+            self.root, 
+            text="",
+            font=("Arial", 10),
+            command=self.define_random_target,
+            bg="#FFFFFF",
+            state="disabled"
+        )
+        self.define_next_random_target()
         #random button
         self.total_clicks = 0
         self.bw = 40
@@ -77,10 +87,19 @@ class App:
     def place_btn_at_center(self):
         self.random_btn.place(x=(self.width - self.bw)/2 , y=(self.height - self.bh)/2, width=self.bw, height=self.bh)
 
+    def define_next_random_target(self):
+        self.root.update_idletasks()
+        if RANDOMIZE_BTN_SIZE:
+            self.next_bw = random.randint(10, int(self.width/5))
+            self.next_bh = random.randint(10, int(self.height/5))
+        self.next_bx = random.randint(0, self.width - self.next_bw)
+        self.next_by = random.randint(0, self.height - self.next_bh)
+        self.next_random_btn.place(x=self.next_bx, y=self.next_by, width=self.next_bw, height=self.next_bh)
+
     def define_random_target(self):
         with self.clicked_lock:
             self.clicked = True
-        self.total_clicks = self.total_clicks + 1
+        self.total_clicks += 1
         if not self.recording:
             self.recording = True
             self.random_btn.config(text="X", bg="red")
@@ -89,10 +108,11 @@ class App:
             threading.Thread(target=self.get_data, daemon=True).start()
         self.root.update_idletasks()
         if RANDOMIZE_BTN_SIZE:
-            self.bw = random.randint(10, int(self.width/5))
-            self.bh = random.randint(10, int(self.height/5))
-        self.bx = random.randint(0, self.width - self.bw)
-        self.by = random.randint(0, self.height - self.bh)
+            self.bw = self.next_bw
+            self.bh = self.next_bh
+        self.bx = self.next_bx
+        self.by = self.next_by
+        self.define_next_random_target()
         self.random_btn.place(x=self.bx, y=self.by, width=self.bw, height=self.bh)
         print(f"Novo alvo: x={self.bx}, y={self.by} w={self.bw}, h={self.bh}, clicks={self.total_clicks}")
 
@@ -101,11 +121,9 @@ class App:
         #a captação deve ser feita em intervalos iguais
         try:
             id = str(time.time()).replace(".", "")
-            name = "data/data-{id}.csv"
+            name = f"data/data-{id}.csv"
             if not os.path.exists("data"):
-                print("no pathh to data")
                 name = "../" + name
-            print(name)
             with open(name, "w+", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([
