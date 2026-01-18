@@ -1,19 +1,17 @@
 #modules
-from train_utils import load_csv_data, DebugCallback
+from train_utils import load_csv_data, DebugCallback, create_sequences
 #libs
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping
-#native libs
-import time
 
-inputs = layers.Input(shape=(5,))
+#offset_x, offset_w, btn_w, btn_h
+inputs = layers.Input(shape=(4,))
 #base comum
 x = layers.Dense(64, activation="relu")(inputs)
-#cabeça de movimento
 x_mov = layers.Dense(64, activation="selu")(x)
+#cabeça de movimento
 mov_x = layers.Dense(1, name="mov_x")(x_mov)
 mov_y = layers.Dense(1, name="mov_y")(x_mov)
-x_click = layers.Dense(1, activation="relu")(x)
 model = models.Model(inputs, [mov_x, mov_y])
 
 model.compile(

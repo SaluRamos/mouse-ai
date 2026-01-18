@@ -172,18 +172,11 @@ Please, dont hesitate to colaborate with the project. Give your ⭐
 | **BNB Chain** | <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/bnb.png" width="20"> | `0xcD36cf511646bD39Cb23f425786a4f3699CcFD2a` |
 | **TRON** | <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/trx.png" width="20"> | `TWhZLJ61uY1bo8zicwhnfS5NKuuD6BJ8D8` |
 
-### Model
-  
-****Input**** = offset_x_from_target, offset_y_from_target, is_inside_btn, button_width, button_heigth  
-****Output**** = mov_x, mov_y  
-
 ### Articles
 
 [DMTG: A Human-Like Mouse Trajectory Generation Bot Based on Entropy-Controlled Diffusion Networks](https://arxiv.org/html/2410.18233v1)
 
 ### TODO
 
-- there is no point in sending 'is_inside_btn' and 'btn_width'/'btn_height' at the same time. 'is_inside_btn' is implicit at btn size information
-- analyze data to get a distribution of how many ticks a path normally takes.
 - separate data in sequential.
 - implement GAN.
