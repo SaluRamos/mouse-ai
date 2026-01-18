@@ -8,9 +8,12 @@ from scipy import stats
 import glob
 import csv
 import random
+import os
 
 def get_ticks_inside_btn_until_click() -> None:
     path = "data/data-*.csv"
+    if not os.path.exists(path):
+        path = "../" + path
     data = {}
     files = glob.glob(path)
     for file in files:
