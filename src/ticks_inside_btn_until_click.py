@@ -1,3 +1,5 @@
+#modules
+from utils import print_sorted_dict
 #libs
 import numpy as np
 import matplotlib.pyplot as plt
@@ -55,10 +57,6 @@ def get_ticks_inside_btn_until_click() -> None:
     pdf_scaled = pdf*len(values)
     plt.plot(xx, pdf_scaled, linewidth=2, color="#cf8e00")
     plt.show()
-
-def print_sorted_dict(data) -> None:
-    for ticks in sorted(data.keys()):
-        print(f"ticks = {ticks}, amount = {data[ticks]}")
 
 def random_ticks_inside_btn(shape:float=10.53369, loc:float=-0.93502, scale:float=0.80039) -> int:
     r = random.gammavariate(shape, scale)

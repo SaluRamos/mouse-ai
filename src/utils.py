@@ -10,3 +10,7 @@ def calc_degree_btw_vecs(v1:list, v2:list) -> float:
     if mag1 == 0 or mag2 == 0: return 0
     cos_theta = max(-1, min(1, dot / (mag1 * mag2)))
     return math.degrees(math.acos(cos_theta))
+
+def print_sorted_dict(data) -> None:
+    for key in sorted(data.keys()):
+        print(f"key = {key}, value = {data[key]}")
