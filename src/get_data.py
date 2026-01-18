@@ -8,6 +8,7 @@ import time
 import threading
 import ctypes
 import logging
+import os
 
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
@@ -99,7 +100,13 @@ class App:
         global capture_sleep
         #a captação deve ser feita em intervalos iguais
         try:
-            with open(f"data/data-{time.time()}.csv", "w", newline="") as f:
+            id = str(time.time()).replace(".", "")
+            name = "data/data-{id}.csv"
+            if not os.path.exists("data"):
+                print("no pathh to data")
+                name = "../" + name
+            print(name)
+            with open(name, "w+", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([
                     "global_pos_x","global_pos_y",
