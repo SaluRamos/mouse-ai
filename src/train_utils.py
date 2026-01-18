@@ -62,5 +62,16 @@ class DebugCallback(tf.keras.callbacks.Callback):
             f"mov_y={logs['mov_y_loss']:.4f} | "
         )
 
+#Util for RNN's
+def create_sequences(X, y, time_steps:int):
+    Xs, ys_mov_x, ys_mov_y, ys_click = [], [], [], []
+    for i in range(len(X) - time_steps):
+        Xs.append(X[i:(i + time_steps)])
+        # O alvo é sempre o resultado do ÚLTIMO frame da sequência
+        ys_mov_x.append(y[i + time_steps][0])
+        ys_mov_y.append(y[i + time_steps][1])
+        ys_click.append(y[i + time_steps][2])
+    return np.array(Xs), [np.array(ys_mov_x), np.array(ys_mov_y), np.array(ys_click)] #X_seq, y_seqs
+
 print(tf.config.list_physical_devices('GPU'))
 print("Cuda Disponível:", tf.test.is_built_with_cuda())
