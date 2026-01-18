@@ -1,3 +1,5 @@
+#modules
+from utils import get_mouse_pos
 #libs
 import tkinter as tk
 import keyboard
@@ -6,7 +8,6 @@ import random
 import csv
 import time
 import threading
-import ctypes
 import logging
 import os
 
@@ -18,14 +19,6 @@ RANDOMIZE_BTN_SIZE = True
 #que costuma ser disparado usando a informação do monitor, na maioria dos casos 60Hz
 TARGET_HZ = 60
 PERIOD = 1.0 / TARGET_HZ
-
-class POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
-def get_mouse_pos() -> tuple[int, int]:
-    pt = POINT()
-    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-    return pt.x, pt.y
 
 class App:
 

@@ -1,4 +1,5 @@
 #modules
+from utils import get_mouse_pos, mov_mouse, click_mouse
 from enums import ModelType
 from ticks_inside_btn_until_click import random_ticks_inside_btn
 #libs
@@ -8,35 +9,19 @@ import numpy as np
 #native libs
 import tkinter as tk
 import random
-import ctypes
 import threading
 from collections import deque
 import math
+import os
+import time
 
 MODEL_TYPE = ModelType.MLP
 SHORTCUT_QUIT = 'ctrl+o'
 RANDOMIZE_BTN_SIZE = True
 EXECUTE_AI = True
 
-class POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
-def get_mouse_pos() -> tuple[int, int]:
-    pt = POINT()
-    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-    return pt.x, pt.y
-
-SendInput = ctypes.windll.user32.mouse_event
-MOUSEEVENTF_MOVE = 0x0001
-MOUSEEVENTF_LEFTDOWN = 0x0002
-MOUSEEVENTF_LEFTUP = 0x0004
-
-def mov_mouse(mov_x:int, mov_y:int) -> None:
-    SendInput(MOUSEEVENTF_MOVE, mov_x, mov_y, 0, 0)
-
-def click_mouse() -> None:
-    SendInput(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-    SendInput(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+TARGET_HZ = 60
+PERIOD = 1.0 / TARGET_HZ
 
 class App:
     
@@ -66,6 +51,8 @@ class App:
             MODEL_PATH = "models/mouse_mlp.keras"
         if MODEL_TYPE == ModelType.RNN:
             MODEL_PATH = "models/mouse_rnn.keras"
+        if not os.path.exists(MODEL_PATH):
+            MODEL_PATH = "../" + MODEL_PATH
         model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 
         btn_size_m = 1
@@ -83,6 +70,8 @@ class App:
         inp = None
         ticks_inside_btn = 0
         next_ticks_to_click = random_ticks_inside_btn()
+
+        next_time = time.perf_counter()
 
         while True:
 
@@ -130,6 +119,11 @@ class App:
                     next_ticks_to_click = random_ticks_inside_btn()
                     ticks_inside_btn = 0
             print(f"mov_x={mov_x:<8.3f}, mov_y={mov_y:<8.3f}, inside_btn={is_mouse_inside_btn:<2.0f}, ticks_inside={ticks_inside_btn:<2.0f}, next_click={next_ticks_to_click:<2.0f}")
+
+            next_time += PERIOD
+            sleep_time = next_time - time.perf_counter()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     def on_resize(self, event):
         if event.widget is self.root:
