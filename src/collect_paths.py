@@ -1,15 +1,20 @@
 #modules
 from utils import calc_degree_btw_vecs, calc_vec_magnitude
+from utils import print_sorted_dict
 #libs
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from scipy import stats
 #native libs
 import glob
 import csv
+import os
 
-def collect_paths() -> None:
-    path = "data/data-*.csv"
-    data = {}
+def collect_paths(plot:bool=False) -> list:
+    path = "data/good/data-*.csv"
+    if not os.path.exists(path):
+        path = "../" + path
     files = glob.glob(path)
 
     paths = []
@@ -21,7 +26,8 @@ def collect_paths() -> None:
             for i, row in enumerate(reader):
                 if int(row["click"]) == 1 and len(actual_path) > 0:
                     paths.append(actual_path.copy())
-                    plot_path(actual_path)
+                    if plot:
+                        plot_path(actual_path)
                     actual_path.clear()
                 global_mouse_pos = [float(row["global_pos_x"]), float(row["global_pos_y"])]
                 window_size = [int(row["window_width"]), int(row["window_height"])]
@@ -40,11 +46,13 @@ def collect_paths() -> None:
                     "btn_size":btn_size,
                     "btn_pos":btn_pos,
                     "mov":mov_vec,
-                    "is_inside_btn":row["is_inside_btn"]
+                    "is_inside_btn":row["is_inside_btn"],
+                    "degree_diff":degree_diff
                 }
                 actual_path.append(tick_info)
     
     print(f"TOTAL PATHS = {len(paths)}")
+    return paths
 
 def plot_path(path: list[dict]) -> None:
     xs = [tick["pos"][0] for tick in path]
@@ -74,5 +82,30 @@ def plot_path(path: list[dict]) -> None:
 
     plt.show()
 
+def plot_ticks_per_path(paths:list) -> None:
+    data = {}
+    for path in paths:
+        ticks = len(path)
+        if ticks not in data.keys():
+            data[ticks] = 0
+        data[ticks] += 1
+    print_sorted_dict(data)
+    values = []
+    for ticks, incidents in data.items():
+        values.extend([ticks] * incidents)
+    params = stats.gamma.fit(values)
+    print(f"{params}")
+    #plotar colunas
+    xs = np.array(sorted(data.keys()))
+    ys = np.array([data[k] for k in xs])
+    plt.bar(xs, ys)
+    #plotar curva
+    xx = np.linspace(xs.min(), xs.max(), 500)
+    pdf = stats.gamma.pdf(xx, *params)
+    pdf_scaled = pdf*len(values)
+    plt.plot(xx, pdf_scaled, linewidth=2, color="#cf8e00")
+    plt.show()
+
 if __name__ == "__main__":
-    collect_paths()
+    paths = collect_paths(False)
+    plot_ticks_per_path(paths)
