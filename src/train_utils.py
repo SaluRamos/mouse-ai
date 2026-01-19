@@ -1,77 +1,124 @@
 #modules
-from utils import calc_degree_btw_vecs, calc_vec_magnitude
+from collect_paths import plot_path
 #libs
 import tensorflow as tf
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 import numpy as np
 #native libs
 import csv
 import glob
+import os
+import math
 
-def load_csv_data(filter_mov0:bool, filter_big_degree:bool):
-    X = []
-    y = []
+MAX_SEQ_LEN = 100 # Baseado em analises
+FEATURE_DIM = 2 # mov_x, mov_y
+COND_DIM = 4 # offset_x, offset_y, btn_w, btn_h (condições iniciais)
+
+def load_padded_sequences():
+    """
+    Carrega os dados agrupados por 'path' (caminho até o clique).
+    Retorna:
+      - sequences: (N, MAX_SEQ_LEN, 2) -> Sequências de movimentos (mov_x, mov_y)
+      - conditions: (N, 4) -> Estado inicial do caminho (distância alvo, tamanho botão)
+    """
     path = "data/data-*.csv"
+    if not os.path.exists("data/"):
+        path = "../" + path
     files = glob.glob(path)
-    removed_lines_with_low_mov = 0
-    removed_lines_with_big_degree = 0
-    rows_with_click = 0
+    all_sequences = []
+    all_conditions = []
     for file in files:
-        print(f"LENDO '{file}'")
         with open(file, newline="") as f:
             reader = csv.DictReader(f)
-            for i, row in enumerate(reader):
-                #penalizar cursor parado
-                if filter_mov0 and float(row["mov_x"]) == 0 and float(row["mov_y"]) == 0:
-                    removed_lines_with_low_mov += 1
-                    continue
-                #penalizar direção oposta ao alvo
-                if filter_big_degree and calc_degree_btw_vecs([float(row["mov_x"]), float(row["mov_y"])], [float(row["offset_x"]), float(row["offset_y"])]) > 120.0:
-                    removed_lines_with_big_degree += 1
-                    continue
+            current_path = []
+            initial_condition = None 
+            for row in reader:
+                # Dados do tick atual
+                mov = [float(row["mov_x"]), float(row["mov_y"])]
+                if initial_condition is None:
+                    initial_condition = [
+                        float(row["offset_x"]),
+                        float(row["offset_y"]),
+                        float(row["btn_w"]),
+                        float(row["btn_h"])
+                    ]
+                current_path.append(mov)
                 if int(row["click"]) == 1:
-                    rows_with_click += 1
-                X.append([
-                    float(row["offset_x"]),
-                    float(row["offset_y"]),
-                    float(row["is_inside_btn"]),
-                    float(row["btn_w"]),
-                    float(row["btn_h"])
-                ])
-                y.append([
-                    float(row["mov_x"]),
-                    float(row["mov_y"]),
-                    float(row["click"])
-                ])
-    X = np.array(X, dtype=np.float32)
-    y = np.array(y, dtype=np.float32)
-    if filter_mov0:
-        print(f"REMOVED LINES WITH LOW MOV = {removed_lines_with_low_mov}")
-    if filter_big_degree:
-        print(f"REMOVED LINES WITH BIG DEGREE = {removed_lines_with_big_degree}")
-    print(f"ROWS WITH CLICK = {rows_with_click}")
-    print(f"TOTAL ROWS: {X.shape[0]}")
-    return X, y
+                    # Filtra paths muito curtos (ruído) ou muito longos
+                    if len(current_path) > 5 and len(current_path) <= MAX_SEQ_LEN:
+                        # Padding: Preenche o restante com (0,0) até chegar em MAX_SEQ_LEN
+                        # Isso ensina a rede que o movimento deve "parar"
+                        pad_len = max(MAX_SEQ_LEN - len(current_path), 0)
+                        padded_path = current_path + [[0.0, 0.0]] * pad_len
+                        all_sequences.append(padded_path)
+                        all_conditions.append(initial_condition)
+                    current_path = []
+                    initial_condition = None
+    X_seq = np.array(all_sequences, dtype=np.float32)
+    X_cond = np.array(all_conditions, dtype=np.float32)
+    print(f"Sequências carregadas: {X_seq.shape}")
+    print(f"Condições carregadas: {X_cond.shape}")
+    return X_seq, X_cond
 
-class DebugCallback(tf.keras.callbacks.Callback):
+def dist_point_aabb(px, py, x_min, y_min, x_max, y_max):
+    # Encontra a coordenada X mais próxima dentro dos limites do retângulo
+    closest_x = max(x_min, min(px, x_max))
+    # Encontra a coordenada Y mais próxima dentro dos limites do retângulo
+    closest_y = max(y_min, min(py, y_max))
+    # Calcula a diferença entre o ponto original e o ponto mais próximo
+    dx = px - closest_x
+    dy = py - closest_y
+    # Retorna a distância Euclidiana
+    return math.sqrt(dx**2 + dy**2)
+
+class GANMonitor(tf.keras.callbacks.Callback):
+
+    def __init__(self, latent_dim):
+        self.latent_dim = latent_dim
+        # Criamos uma condição fixa para ver como o mesmo movimento evolui
+        # Ex: Alvo em 0.5, 0.5 com botão de tamanho padrão
+        self.test_cond = np.array([[0.5, 0.5, 0.05, 0.03]], dtype=np.float32)
+        self.plots_path = "plots"
+        if not os.path.exists("models"):
+            self.plots_path = "../" + self.plots_path
+        if not os.path.exists(self.plots_path):
+            os.makedirs(self.plots_path)
 
     def on_epoch_end(self, epoch, logs=None):
-        print(
-            f"[EPOCH {epoch+1}] "
-            f"total={logs['loss']:.4f}"
-            f"mov_x={logs['mov_x_loss']:.4f} | "
-            f"mov_y={logs['mov_y_loss']:.4f} | "
-        )
-
-#Util for RNN's
-def create_sequences(X, y, time_steps:int):
-    Xs, ys_mov_x, ys_mov_y, ys_click = [], [], [], []
-    for i in range(len(X) - time_steps):
-        Xs.append(X[i:(i + time_steps)])
-        # O alvo é sempre o resultado do ÚLTIMO frame da sequência
-        ys_mov_x.append(y[i + time_steps][0])
-        ys_mov_y.append(y[i + time_steps][1])
-        ys_click.append(y[i + time_steps][2])
-    return np.array(Xs), [np.array(ys_mov_x), np.array(ys_mov_y), np.array(ys_click)] #X_seq, y_seqs
+        # A cada 5 épocas para não poluir muito (ou mude para 1)
+        if (epoch + 1) % 1 == 0:
+            off_x, off_y, bw, bh = self.test_cond[0]
+            # 2. Gerar trajetória
+            noise = tf.random.normal(shape=(1, self.latent_dim))
+            generated = self.model.generator([noise, self.test_cond]).numpy()[0]
+            # 3. Calcular posições absolutas (Mouse começa em 0,0)
+            path_x = np.cumsum(generated[:, 0])
+            path_y = np.cumsum(generated[:, 1])
+            # plt.figure(figsize=(7, 7))
+            # 4. Desenhar o Botão (Alvo é o centro do botão)
+            # btn_pos_x = centro - largura/2
+            btn_x = off_x - bw/2
+            btn_y = off_y - bh/2
+            rect = Rectangle((btn_x, btn_y), bw, bh, fill=False, color='red', linewidth=2)
+            plt.gca().add_patch(rect)
+            # 5. Plotar Trajetória e Alvo
+            plt.plot(path_x, path_y, '-o', markersize=2, alpha=0.6)
+            plt.scatter(off_x, off_y, color='red', s=50)
+            # 6. Zoom Automático Dinâmico
+            # Pegamos os limites de tudo que existe no plot (path e botão)
+            all_x = np.concatenate([path_x, [0, btn_x, btn_x + bw]])
+            all_y = np.concatenate([path_y, [0, btn_y, btn_y + bh]])
+            margin = 0.05
+            plt.xlim(min(all_x) - margin, max(all_x) + margin)
+            plt.ylim(min(all_y) - margin, max(all_y) + margin)
+            plt.gca().set_aspect("equal")
+            plt.title(f"Época {epoch+1} | D_Loss: {logs['d_loss']:.4f} | G Loss: {logs['g_loss']:.4f}")
+            plt.grid(True, linestyle='--', alpha=0.5)
+            # Salvar e fechar
+            plt.savefig(f"{self.plots_path}/epoch_{epoch+1}.png")
+            plt.close()
+        print(f"\n[Epoch {epoch+1}] D Loss: {logs['d_loss']:.4f} | G Loss: {logs['g_loss']:.4f}")
 
 print(tf.config.list_physical_devices('GPU'))
 print("Cuda Disponível:", tf.test.is_built_with_cuda())

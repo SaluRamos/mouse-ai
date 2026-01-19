@@ -27,7 +27,7 @@ def collect_paths(plot:bool=False) -> list:
                 if int(row["click"]) == 1 and len(actual_path) > 0:
                     paths.append(actual_path.copy())
                     if plot:
-                        plot_path(actual_path)
+                        plot_path(actual_path, True)
                     actual_path.clear()
                 global_mouse_pos = [float(row["global_pos_x"]), float(row["global_pos_y"])]
                 window_size = [int(row["window_width"]), int(row["window_height"])]
@@ -54,7 +54,7 @@ def collect_paths(plot:bool=False) -> list:
     print(f"TOTAL PATHS = {len(paths)}")
     return paths
 
-def plot_path(path: list[dict]) -> None:
+def plot_path(path: list[dict], show:bool, save_path:str="") -> None:
     xs = [tick["pos"][0] for tick in path]
     ys = [tick["pos"][1] for tick in path]
 
@@ -80,7 +80,11 @@ def plot_path(path: list[dict]) -> None:
     plt.ylim(0, 1)
     plt.gca().set_aspect("equal", adjustable="box")
 
-    plt.show()
+    if show:
+        plt.show()
+    if not save_path == "":
+        plt.savefig(save_path)
+        plt.close()
 
 def plot_ticks_per_path(paths:list) -> None:
     data = {}
@@ -94,7 +98,6 @@ def plot_ticks_per_path(paths:list) -> None:
     for ticks, incidents in data.items():
         values.extend([ticks] * incidents)
     params = stats.gamma.fit(values)
-    print(f"{params}")
     #plotar colunas
     xs = np.array(sorted(data.keys()))
     ys = np.array([data[k] for k in xs])
