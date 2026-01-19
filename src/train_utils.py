@@ -61,17 +61,6 @@ def load_padded_sequences():
     print(f"Condições carregadas: {X_cond.shape}")
     return X_seq, X_cond
 
-def dist_point_aabb(px, py, x_min, y_min, x_max, y_max):
-    # Encontra a coordenada X mais próxima dentro dos limites do retângulo
-    closest_x = max(x_min, min(px, x_max))
-    # Encontra a coordenada Y mais próxima dentro dos limites do retângulo
-    closest_y = max(y_min, min(py, y_max))
-    # Calcula a diferença entre o ponto original e o ponto mais próximo
-    dx = px - closest_x
-    dy = py - closest_y
-    # Retorna a distância Euclidiana
-    return math.sqrt(dx**2 + dy**2)
-
 class GANMonitor(tf.keras.callbacks.Callback):
 
     def __init__(self, latent_dim):
@@ -86,27 +75,18 @@ class GANMonitor(tf.keras.callbacks.Callback):
             os.makedirs(self.plots_path)
 
     def on_epoch_end(self, epoch, logs=None):
-        # A cada 5 épocas para não poluir muito (ou mude para 1)
         if (epoch + 1) % 1 == 0:
             off_x, off_y, bw, bh = self.test_cond[0]
-            # 2. Gerar trajetória
             noise = tf.random.normal(shape=(1, self.latent_dim))
             generated = self.model.generator([noise, self.test_cond]).numpy()[0]
-            # 3. Calcular posições absolutas (Mouse começa em 0,0)
             path_x = np.cumsum(generated[:, 0])
             path_y = np.cumsum(generated[:, 1])
-            # plt.figure(figsize=(7, 7))
-            # 4. Desenhar o Botão (Alvo é o centro do botão)
-            # btn_pos_x = centro - largura/2
             btn_x = off_x - bw/2
             btn_y = off_y - bh/2
             rect = Rectangle((btn_x, btn_y), bw, bh, fill=False, color='red', linewidth=2)
             plt.gca().add_patch(rect)
-            # 5. Plotar Trajetória e Alvo
             plt.plot(path_x, path_y, '-o', markersize=2, alpha=0.6)
-            plt.scatter(off_x, off_y, color='red', s=50)
-            # 6. Zoom Automático Dinâmico
-            # Pegamos os limites de tudo que existe no plot (path e botão)
+            plt.scatter(path_x[-1], path_y[-1], color="#ce690c", s=30, edgecolors='white', zorder=5)
             all_x = np.concatenate([path_x, [0, btn_x, btn_x + bw]])
             all_y = np.concatenate([path_y, [0, btn_y, btn_y + bh]])
             margin = 0.05
@@ -115,7 +95,6 @@ class GANMonitor(tf.keras.callbacks.Callback):
             plt.gca().set_aspect("equal")
             plt.title(f"Época {epoch+1} | D_Loss: {logs['d_loss']:.4f} | G Loss: {logs['g_loss']:.4f}")
             plt.grid(True, linestyle='--', alpha=0.5)
-            # Salvar e fechar
             plt.savefig(f"{self.plots_path}/epoch_{epoch+1}.png")
             plt.close()
         print(f"\n[Epoch {epoch+1}] D Loss: {logs['d_loss']:.4f} | G Loss: {logs['g_loss']:.4f}")

@@ -1,5 +1,5 @@
 #modules
-from train_utils import load_padded_sequences, GANMonitor, MAX_SEQ_LEN, FEATURE_DIM, COND_DIM, dist_point_aabb
+from train_utils import load_padded_sequences, GANMonitor, MAX_SEQ_LEN, FEATURE_DIM, COND_DIM
 #libs
 import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers
@@ -7,29 +7,22 @@ import matplotlib.pyplot as plt
 #native libs
 import os
 
-LATENT_DIM = 100 # Tamanho do vetor de ruído aleatório
-BATCH_SIZE = 32
-EPOCHS = 100 #GANs precisam de mais épocas que MLPs simples
+LATENT_DIM = 100
+BATCH_SIZE = 64
+EPOCHS = 10
+CONTINUE_TRAINING = True
 
 def build_generator() -> models.Model:
     """
     Entrada: Ruído (Latent) + Condição (Distância inicial, tamanho botão)
     Saída: Sequência de movimentos (MAX_SEQ_LEN, 2)
     """
-    # Entrada de Ruído e Condição
     noise_input = layers.Input(shape=(LATENT_DIM,), name="noise_input")
     cond_input = layers.Input(shape=(COND_DIM,), name="cond_input")
-    # Combina ruído e condição
     x = layers.Concatenate()([noise_input, cond_input])
-    # Prepara para entrar na LSTM/RNN: Repete o vetor para cada passo de tempo
     x = layers.RepeatVector(MAX_SEQ_LEN)(x)
-    # Camadas Recorrentes para gerar sequência
     x = layers.LSTM(128, return_sequences=True)(x)
     x = layers.LSTM(64, return_sequences=True)(x)
-    # Camada densa para saída final (dx, dy)
-    # Ativação 'tanh' permite saídas negativas (movimento para esquerda/cima), 
-    # mas 'linear' é melhor se os dados não estiverem estritamente em -1 a 1.
-    # Dado que mov_x é pequeno, linear costuma funcionar bem.
     output = layers.TimeDistributed(layers.Dense(FEATURE_DIM, activation="linear"))(x)
     return models.Model([noise_input, cond_input], output, name="Generator")
 
@@ -40,11 +33,8 @@ def build_discriminator() -> models.Model:
     """
     seq_input = layers.Input(shape=(MAX_SEQ_LEN, FEATURE_DIM), name="seq_input")
     cond_input = layers.Input(shape=(COND_DIM,), name="cond_input")
-    # Precisamos replicar a condição para concatenar com a sequência em cada passo de tempo
     cond_repeated = layers.RepeatVector(MAX_SEQ_LEN)(cond_input)
-    # Junta os movimentos com a condição (o discriminador precisa saber ONDE era o alvo)
     x = layers.Concatenate()([seq_input, cond_repeated])
-    # Analisa a sequência
     x = layers.LSTM(64, return_sequences=True)(x)
     x = layers.Dropout(0.1)(x)
     x = layers.GlobalMaxPooling1D()(x) # Pega as características mais fortes
@@ -108,32 +98,25 @@ class MouseGAN(models.Model):
             # Gerar sequências dentro do tape
             generated_seqs = self.generator([random_latent_vectors, conditions])
             pred_fake = self.discriminator([generated_seqs, conditions])
-            # 1. Perda da GAN (parecer humano)
+            # Perda da GAN (parecer humano)
             g_gan_loss = self.loss_fn(misleading_labels, pred_fake)
-            # 1. Calcula a posição final absoluta do mouse (Início 0,0 + soma dos deltas)
+            # Adiciona a loss do gerador a distancia do menor caminho até o botão
             path_final_position = tf.reduce_sum(generated_seqs[:, :, :2], axis=1)
             px = path_final_position[:, 0]
             py = path_final_position[:, 1]
-            # 2. Extrai os limites do botão a partir das conditions
-            # conditions: [offset_x, offset_y, is_inside, btn_w, btn_h]
             target_x = conditions[:, 0]
             target_y = conditions[:, 1]
-            bw = conditions[:, 3]
-            bh = conditions[:, 4]
-            # O offset_x/y é o CENTRO do botão, então os limites são:
+            bw = conditions[:, 2]
+            bh = conditions[:, 3]
             x_min = target_x - (bw / 2)
             x_max = target_x + (bw / 2)
             y_min = target_y - (bh / 2)
             y_max = target_y + (bh / 2)
-            # 3. Lógica AABB em formato de Tensor (equivalente à sua função)
             closest_x = tf.clip_by_value(px, x_min, x_max)
             closest_y = tf.clip_by_value(py, y_min, y_max)
-            # 4. Calcula a distância (usamos MAE para evitar gradientes explodindo)
             dist_x = tf.abs(px - closest_x)
             dist_y = tf.abs(py - closest_y)
             aabb_distance_loss = tf.reduce_mean(dist_x + dist_y)
-            # 5. Aplica na g_loss
-            # Se o ponto estiver dentro, a dist_x/y será 0, e a loss será zero!
             g_loss = g_gan_loss + (aabb_distance_loss * 15.0)
 
         grads = tape.gradient(g_loss, self.generator.trainable_weights)
@@ -150,23 +133,19 @@ class MouseGAN(models.Model):
 
 if __name__ == "__main__":
     X_seq, X_cond = load_padded_sequences()
-
     generator = None
     discriminator = None    
-
-    if True:
+    if CONTINUE_TRAINING:
         generator = models.load_model("../models/mouse_gan_generator.keras")
         discriminator = models.load_model("../models/mouse_gan_discriminator.keras")
     else:
         generator = build_generator()
         discriminator = build_discriminator()
-
     print("\n--- Generator Summary ---")
     generator.summary()
     print("\n--- Discriminator Summary ---")
     discriminator.summary()
 
-    # Inicializar e Compilar GAN
     gan = MouseGAN(generator, discriminator)
     
     gan.compile(
@@ -174,7 +153,6 @@ if __name__ == "__main__":
         g_optimizer=optimizers.Adam(learning_rate=0.0001), # Gerador geralmente aprende mais devagar
         loss_fn=tf.keras.losses.BinaryCrossentropy()
     )
-
 
     print(f"X_seq shape = {X_seq.shape}")
     print(f"X_cond shape = {X_cond.shape}")
