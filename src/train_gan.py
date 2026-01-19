@@ -9,10 +9,16 @@ import os
 
 LATENT_DIM = 100
 BATCH_SIZE = 32
-EPOCHS = 10
-CONTINUE_TRAINING = True
-AABB_DISTANCE_LOSS_MULT = 250
-DISCRIMINATOR_TRAIN_RATE = 2
+EPOCHS = 50
+
+GENERATOR_LEARNING_RATE:float = 0.0001
+DISCRIMINATOR_LEARNING_RATE:float = 0.000005
+
+AABB_DISTANCE_LOSS_MULT:float = 1000.0
+AABB_FIXED_LOSS:float = 1.0
+
+DISCRIMINATOR_TRAIN_RATE:int = 1
+DISCRIMINATOR_DROPOUT:float = 0.2
 
 def build_generator() -> models.Model:
     """
@@ -26,7 +32,15 @@ def build_generator() -> models.Model:
     x = layers.LSTM(128, return_sequences=True)(x)
     x = layers.LSTM(64, return_sequences=True)(x)
     output = layers.TimeDistributed(layers.Dense(FEATURE_DIM, activation="linear"))(x)
-    return models.Model([noise_input, cond_input], output, name="Generator")
+    model = models.Model([noise_input, cond_input], output, name="Generator")
+    model.epoch_tracker = model.add_weight(
+        name="epoch_tracker",
+        shape=(),
+        initializer="zeros",
+        trainable=False,
+        dtype=tf.int32
+    )
+    return model
 
 def build_discriminator() -> models.Model:
     """
@@ -38,11 +52,19 @@ def build_discriminator() -> models.Model:
     cond_repeated = layers.RepeatVector(MAX_SEQ_LEN)(cond_input)
     x = layers.Concatenate()([seq_input, cond_repeated])
     x = layers.LSTM(64, return_sequences=True)(x)
-    x = layers.Dropout(0.1)(x)
-    x = layers.GlobalMaxPooling1D()(x) # Pega as características mais fortes
+    x = layers.Dropout(DISCRIMINATOR_DROPOUT)(x)
+    x = layers.GlobalMaxPooling1D()(x)
     x = layers.Dense(64, activation="relu")(x)
     output = layers.Dense(1, activation="sigmoid")(x) # 0 a 1
-    return models.Model([seq_input, cond_input], output, name="Discriminator")
+    model = models.Model([seq_input, cond_input], output, name="Discriminator")
+    model.epoch_tracker = model.add_weight(
+        name="epoch_tracker",
+        shape=(),
+        initializer="zeros",
+        trainable=False,
+        dtype=tf.int32
+    )
+    return model
 
 class MouseGAN(models.Model):
 
@@ -50,6 +72,22 @@ class MouseGAN(models.Model):
         super(MouseGAN, self).__init__()
         self.generator = generator
         self.discriminator = discriminator
+        if not hasattr(self.generator, 'epoch_tracker'):
+             self.generator.epoch_tracker = self.generator.add_weight(
+                name="epoch_tracker",
+                shape=(),
+                initializer="zeros",
+                trainable=False,
+                dtype=tf.int32
+            )
+        if not hasattr(self.discriminator, 'epoch_tracker'):
+             self.discriminator.epoch_tracker = self.discriminator.add_weight(
+                name="epoch_tracker",
+                shape=(),
+                initializer="zeros",
+                trainable=False,
+                dtype=tf.int32
+            )
 
     def compile(self, d_optimizer, g_optimizer, loss_fn, **kwargs):
         super(MouseGAN, self).compile(**kwargs)
@@ -77,8 +115,9 @@ class MouseGAN(models.Model):
         generated_seqs = self.generator([random_latent_vectors, conditions])
 
         labels_real = tf.ones((batch_size, 1)) * 0.9
-        # labels_real = tf.random.uniform(shape=(batch_size, 1), minval=0.8, maxval=1.0)
         labels_fake = tf.zeros((batch_size, 1))
+
+        # labels_real = tf.random.uniform(shape=(batch_size, 1), minval=0.8, maxval=1.0)
         # labels_fake = tf.random.uniform(shape=(batch_size, 1), minval=0.0, maxval=0.2)
 
         with tf.GradientTape() as tape:
@@ -121,7 +160,7 @@ class MouseGAN(models.Model):
             dist_y = tf.abs(py - closest_y)
             dist_total = dist_x + dist_y
             penalty_mask = tf.cast(tf.greater(dist_total, 0), tf.float32) #retorna 0 ou 1
-            aabb_distance_loss = tf.reduce_mean(dist_total + (penalty_mask * 0.1))
+            aabb_distance_loss = tf.reduce_mean(dist_total + (penalty_mask * AABB_FIXED_LOSS))
             g_loss = g_gan_loss + (aabb_distance_loss * AABB_DISTANCE_LOSS_MULT)
             #calcular taxa de acerto do gerador em terminar dentro do botão
             within_x = tf.logical_and(px >= x_min, px <= x_max)
@@ -148,23 +187,36 @@ class MouseGAN(models.Model):
 if __name__ == "__main__":
     X_seq, X_cond = load_padded_sequences()
     generator = None
-    discriminator = None    
-    if CONTINUE_TRAINING:
-        generator = models.load_model("../models/mouse_gan_generator.keras")
-        discriminator = models.load_model("../models/mouse_gan_discriminator.keras")
-    else:
+    discriminator = None
+
+    generator_save_path = "models/mouse_gan_generator.keras"
+    discriminator_save_path = "models/mouse_gan_discriminator.keras"
+    if not os.path.exists("models/"):
+        generator_save_path = "../" + generator_save_path
+        discriminator_save_path = "../" + discriminator_save_path
+
+    try:
+        generator = models.load_model(generator_save_path)
+    except Exception as e:
         generator = build_generator()
+    try:
+        discriminator = models.load_model(discriminator_save_path)
+    except Exception as e:
         discriminator = build_discriminator()
-    print("\n--- Generator Summary ---")
-    generator.summary()
-    print("\n--- Discriminator Summary ---")
-    discriminator.summary()
+
+    print(f"discriminator: {discriminator.epoch_tracker}")
+    print(f"generator: {generator.epoch_tracker}")
+
+    # print("\n--- Generator Summary ---")
+    # generator.summary()
+    # print("\n--- Discriminator Summary ---")
+    # discriminator.summary()
 
     gan = MouseGAN(generator, discriminator)
     
     gan.compile(
-        d_optimizer=optimizers.Adam(learning_rate=0.00001),
-        g_optimizer=optimizers.Adam(learning_rate=0.0001), # Gerador geralmente aprende mais devagar
+        d_optimizer=optimizers.Adam(learning_rate=DISCRIMINATOR_LEARNING_RATE),
+        g_optimizer=optimizers.Adam(learning_rate=GENERATOR_LEARNING_RATE),
         loss_fn=tf.keras.losses.BinaryCrossentropy()
     )
 
@@ -178,12 +230,11 @@ if __name__ == "__main__":
         callbacks=[GANMonitor(LATENT_DIM)]
     )
 
-    # Salvar Modelo Gerador (O discriminador não é necessário para inferência)
-    generator_save_path = "models/mouse_gan_generator.keras"
-    discriminator_save_path = "models/mouse_gan_discriminator.keras"
-    if not os.path.exists("models/"):
-        generator_save_path = "../" + generator_save_path
-        discriminator_save_path = "../" + discriminator_save_path
+    generator_new_epoch_value = generator.epoch_tracker.read_value() + EPOCHS
+    discriminator_new_epoch_value = discriminator.epoch_tracker.read_value() + EPOCHS
+    generator.epoch_tracker.assign(generator_new_epoch_value)
+    discriminator.epoch_tracker.assign(discriminator_new_epoch_value)
+
     generator.save(generator_save_path)
     discriminator.save(discriminator_save_path)
 

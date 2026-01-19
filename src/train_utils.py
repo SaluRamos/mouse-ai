@@ -75,6 +75,8 @@ class GANMonitor(tf.keras.callbacks.Callback):
             os.makedirs(self.plots_path)
 
     def on_epoch_end(self, epoch, logs=None):
+        generator_new_epoch_value = self.model.generator.epoch_tracker.read_value() + epoch
+        discriminator_new_epoch_value = self.model.discriminator.epoch_tracker.read_value() + epoch
         if (epoch + 1) % 1 == 0:
             off_x, off_y, bw, bh = self.test_cond[0]
             noise = tf.random.normal(shape=(1, self.latent_dim))
@@ -93,11 +95,11 @@ class GANMonitor(tf.keras.callbacks.Callback):
             plt.xlim(min(all_x) - margin, max(all_x) + margin)
             plt.ylim(min(all_y) - margin, max(all_y) + margin)
             plt.gca().set_aspect("equal")
-            plt.title(f"Época {epoch+1} | acc real: {logs['acc_real']:.4f} | g hit rate: {logs['g_hit']:.4f}")
+            plt.title(f"Epoch {epoch+1} | acc real: {logs['acc_real']:.4f} | g hit rate: {logs['g_hit']:.4f}")
             plt.grid(True, linestyle='--', alpha=0.5)
-            plt.savefig(f"{self.plots_path}/epoch_{epoch+1}.png")
+            plt.savefig(f"{self.plots_path}/epoch_g_{generator_new_epoch_value}_d_{discriminator_new_epoch_value}.png")
             plt.close()
-        print(f"\nacc R: {logs['acc_real']:.4f} | acc F: {logs['acc_fake']:.4f} | g hit: {logs['g_hit']}")
+        print(f"\nGENERATOR EPOCH = {generator_new_epoch_value}, DISCRIMINATOR EPOCH = {discriminator_new_epoch_value}")
 
 print(tf.config.list_physical_devices('GPU'))
 print("Cuda Disponível:", tf.test.is_built_with_cuda())
