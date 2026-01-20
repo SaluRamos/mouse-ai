@@ -6,7 +6,7 @@ import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers
 import matplotlib.pyplot as plt
 
-EPOCH_TO_LOAD = 1298
+EPOCH_TO_LOAD = 0
 LOAD_BEST = False
 LOAD_DISCRIMINATOR = False
 
@@ -14,8 +14,8 @@ LATENT_DIM = 100
 BATCH_SIZE = 32
 EPOCHS = 10000
 
-GENERATOR_LEARNING_RATE:float = 0.0001
-DISCRIMINATOR_LEARNING_RATE:float = 0.00001
+GENERATOR_LEARNING_RATE:float = 0.0002
+DISCRIMINATOR_LEARNING_RATE:float = 0.0004
 
 AABB_DISTANCE_LOSS_MULT:float = 1.0
 AABB_FIXED_LOSS:float = 1.0
@@ -94,13 +94,19 @@ class MouseGAN(models.Model):
         self.d_optimizer = d_optimizer
         self.g_optimizer = g_optimizer
         self.loss_fn = loss_fn
+        self.d_training = tf.keras.metrics.Mean(name="d_training")
         self.d_loss_metric = tf.keras.metrics.Mean(name="d_loss")
         self.g_loss_metric = tf.keras.metrics.Mean(name="g_loss")
-        self.train_step_counter = tf.Variable(0, trainable=False, dtype=tf.int32)
+        self.aabb_distance_loss = tf.keras.metrics.Mean(name="aabb_distance_loss")
+        self.g_gan_loss = tf.keras.metrics.Mean(name="g_gan_loss")
+        self.acc = tf.keras.metrics.Mean(name="acc")
+        self.acc_real = tf.keras.metrics.Mean(name="acc_real")
+        self.acc_fake = tf.keras.metrics.Mean(name="acc_fake")
+        self.g_hit = tf.keras.metrics.Mean(name="g_hit")
 
     @property
     def metrics(self):
-        return [self.d_loss_metric, self.g_loss_metric]
+        return [self.d_training, self.d_loss_metric, self.g_loss_metric, self.aabb_distance_loss, self.g_gan_loss, self.acc, self.acc_real, self.acc_fake, self.g_hit]
 
     def train_step(self, data):
         real_seqs, conditions = data
@@ -190,19 +196,26 @@ class MouseGAN(models.Model):
         grads = tape.gradient(g_loss, self.generator.trainable_weights)
         self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
 
+        self.d_training.update_state(d_train_condition)
         self.d_loss_metric.update_state(d_loss)
         self.g_loss_metric.update_state(g_loss)
+        self.aabb_distance_loss.update_state(aabb_distance_loss)
+        self.g_gan_loss.update_state(g_gan_loss)
+        self.acc.update_state(acc)
+        self.acc_real.update_state(acc_real)
+        self.acc_fake.update_state(acc_fake)
+        self.g_hit.update_state(g_hit_rate)
         
         return {
-            "d_training": d_train_condition,
+            "d_training": self.d_training.result(),
             "d_loss": self.d_loss_metric.result(),
             "g_loss": self.g_loss_metric.result(),
-            "aabb_distance_loss": aabb_distance_loss,
-            "g_gan_loss":g_gan_loss,
-            "acc": acc,
-            "acc_real": acc_real,
-            "acc_fake": acc_fake,
-            "g_hit": g_hit_rate
+            "aabb_distance_loss": self.aabb_distance_loss.result(),
+            "g_gan_loss":self.g_gan_loss.result(),
+            "acc": self.acc.result(),
+            "acc_real": self.acc_real.result(),
+            "acc_fake": self.acc_fake.result(),
+            "g_hit": self.g_hit.result()
         }
 
 if __name__ == "__main__":
