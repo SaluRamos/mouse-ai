@@ -1,5 +1,6 @@
 #modules
 from collect_paths import plot_path
+from utils import get_base_path
 #libs
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ import numpy as np
 import csv
 import glob
 import os
-import math
+import json
 
 MAX_SEQ_LEN = 100 # Baseado em analises
 FEATURE_DIM = 2 # mov_x, mov_y
@@ -22,9 +23,7 @@ def load_padded_sequences():
       - sequences: (N, MAX_SEQ_LEN, 2) -> Sequências de movimentos (mov_x, mov_y)
       - conditions: (N, 4) -> Estado inicial do caminho (distância alvo, tamanho botão)
     """
-    path = "data/data-*.csv"
-    if not os.path.exists("data/"):
-        path = "../" + path
+    path = f"{get_base_path()}data/data-*.csv"
     files = glob.glob(path)
     all_sequences = []
     all_conditions = []
@@ -63,21 +62,21 @@ def load_padded_sequences():
 
 class GANMonitor(tf.keras.callbacks.Callback):
 
-    def __init__(self, latent_dim):
+    def __init__(self, latent_dim:int, actual_epoch:int, plot_every:int=1):
         self.latent_dim = latent_dim
+        self.plot_every = plot_every
+        self.loaded_epoch = actual_epoch
         # Criamos uma condição fixa para ver como o mesmo movimento evolui
-        # Ex: Alvo em 0.5, 0.5 com botão de tamanho padrão
+        # Alvo em 0.5, 0.5 com botão de tamanho padrão
         self.test_cond = np.array([[0.5, 0.5, 0.05, 0.03]], dtype=np.float32)
-        self.plots_path = "plots"
-        if not os.path.exists("models"):
-            self.plots_path = "../" + self.plots_path
-        if not os.path.exists(self.plots_path):
+
+        if not os.path.exists(f"{get_base_path()}plots"):
             os.makedirs(self.plots_path)
 
     def on_epoch_end(self, epoch, logs=None):
-        generator_new_epoch_value = self.model.generator.epoch_tracker.read_value() + epoch
-        discriminator_new_epoch_value = self.model.discriminator.epoch_tracker.read_value() + epoch
-        if (epoch + 1) % 1 == 0:
+        real_epoch = self.loaded_epoch + epoch + 1
+
+        if (real_epoch) % self.plot_every == 0:
             off_x, off_y, bw, bh = self.test_cond[0]
             noise = tf.random.normal(shape=(1, self.latent_dim))
             generated = self.model.generator([noise, self.test_cond]).numpy()[0]
@@ -88,6 +87,7 @@ class GANMonitor(tf.keras.callbacks.Callback):
             rect = Rectangle((btn_x, btn_y), bw, bh, fill=False, color='red', linewidth=2)
             plt.gca().add_patch(rect)
             plt.plot(path_x, path_y, '-o', markersize=2, alpha=0.6)
+            plt.scatter(path_x[0], path_y[0], color="#33db00", s=30, edgecolors='white', zorder=5)
             plt.scatter(path_x[-1], path_y[-1], color="#ce690c", s=30, edgecolors='white', zorder=5)
             all_x = np.concatenate([path_x, [0, btn_x, btn_x + bw]])
             all_y = np.concatenate([path_y, [0, btn_y, btn_y + bh]])
@@ -95,11 +95,22 @@ class GANMonitor(tf.keras.callbacks.Callback):
             plt.xlim(min(all_x) - margin, max(all_x) + margin)
             plt.ylim(min(all_y) - margin, max(all_y) + margin)
             plt.gca().set_aspect("equal")
-            plt.title(f"Epoch {epoch+1} | acc real: {logs['acc_real']:.4f} | g hit rate: {logs['g_hit']:.4f}")
+            plt.title(f"Epoch {real_epoch} | acc real: {logs['acc_real']:.4f} | g hit rate: {logs['g_hit']:.4f}")
             plt.grid(True, linestyle='--', alpha=0.5)
-            plt.savefig(f"{self.plots_path}/epoch_g_{generator_new_epoch_value}_d_{discriminator_new_epoch_value}.png")
+            plt.savefig(f"{get_base_path()}plots/{real_epoch}.png")
             plt.close()
-        print(f"\nGENERATOR EPOCH = {generator_new_epoch_value}, DISCRIMINATOR EPOCH = {discriminator_new_epoch_value}")
+
+        print("\n\n")
+        print(f"REAL EPOCH: {real_epoch}")
+
+        self.model.generator.save(f"{get_base_path()}models/{real_epoch}/mouse_gan_generator.keras")
+        self.model.discriminator.save(f"{get_base_path()}models/{real_epoch}/mouse_gan_discriminator.keras")
+        with open(f"{get_base_path()}models/{real_epoch}/info.json", "w+") as f:
+            printable_logs = {k: float(v) if hasattr(v, 'numpy') or isinstance(v, np.generic) else v for k, v in logs.items()}
+            print(printable_logs)
+            json.dump(printable_logs, f, indent=4)
+
+        print("\n\n")
 
 print(tf.config.list_physical_devices('GPU'))
 print("Cuda Disponível:", tf.test.is_built_with_cuda())

@@ -46,6 +46,14 @@ class App:
         )
         self.random_btn.place(x=0, y=0, width=self.bw, height=self.bh)
 
+    # # Exemplo de uso futuro
+    # generator = tf.keras.models.load_model("models/mouse_gan_generator.keras")
+    # # Quero mover para um alvo que está em x=0.5, y=-0.2 de distância
+    # offset = np.array([[0.5, -0.2, 0.05, 0.02]]) # offset_x, offset_y, btn_w, btn_h
+    # noise = np.random.normal(0, 1, (1, 100)) # 100 é o LATENT_DIM
+    # path = generator.predict([noise, offset]) 
+    # # path shape será (1, 100, 2) -> 100 passos de (dx, dy)
+
     def ai_thread(self):
         if MODEL_TYPE == ModelType.MLP:
             MODEL_PATH = "models/mouse_mlp.keras"

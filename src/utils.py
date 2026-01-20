@@ -1,5 +1,46 @@
 import math
 import ctypes
+import os
+from pathlib import Path
+import json
+
+def get_best_model() -> str:
+    base_path = Path(f"{get_base_path()}models/")
+    folders = {}
+    best_folder = ""
+    best_score = -float('inf')
+    for folder in base_path.iterdir():
+        if not folder.is_dir():
+            continue
+        info_path = folder / "info.json"
+        if not info_path.exists():
+            continue
+        try:
+            with open(info_path, "r") as f:
+                stats = json.load(f)
+            g_hit = stats.get("g_hit", 0.0)
+            acc_real = stats.get("acc_real", 0.0)
+            acc_fake = stats.get("acc_fake", 0.0)
+            score = (0.5 - acc_real) + (0.5 - acc_fake) + g_hit
+            folders[folder.absolute()] = [score, g_hit, acc_real, acc_fake]
+            if score > best_score:
+                best_score = score
+                best_folder = str(folder.absolute())
+        except Exception as e:
+            print(f"Erro ao processar pasta {folder}: {e}")
+
+    print("\n--- Ranking de Modelos (Score) ---")
+    sorted_folders = sorted(folders.items(), key=lambda item: item[1], reverse=False)
+    for name, s in sorted_folders: # Mostra o Top 10
+        print(f"Epoch: {name} | score={s[0]:.4f}, g_hit={s[1]:.4f}, acc_real={s[2]:.4f}, acc_fake={s[3]:.4f}")
+    print("----------------------------------\n")
+    return best_folder
+    
+
+def get_base_path() -> str:
+    if not os.path.exists("models/"):
+        return "../"
+    return ""
 
 def calc_vec_magnitude(v:list) -> float:
     return math.sqrt(v[0]**2 + v[1]**2)

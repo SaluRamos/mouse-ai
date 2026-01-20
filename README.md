@@ -175,8 +175,3 @@ Please, dont hesitate to colaborate with the project. Give your ⭐
 ### Articles
 
 [DMTG: A Human-Like Mouse Trajectory Generation Bot Based on Entropy-Controlled Diffusion Networks](https://arxiv.org/html/2410.18233v1)
-
-### TODO
-
-- separate data in sequential.
-- implement GAN.
