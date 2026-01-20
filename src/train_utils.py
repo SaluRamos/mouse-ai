@@ -20,8 +20,8 @@ def load_padded_sequences():
     """
     Carrega os dados agrupados por 'path' (caminho até o clique).
     Retorna:
-      - sequences: (N, MAX_SEQ_LEN, 2) -> Sequências de movimentos (mov_x, mov_y)
-      - conditions: (N, 4) -> Estado inicial do caminho (distância alvo, tamanho botão)
+    - sequences: (N, MAX_SEQ_LEN, 2) -> Sequências de movimentos (mov_x, mov_y)
+    - conditions: (N, 4) -> Estado inicial do caminho (distância alvo, tamanho botão)
     """
     path = f"{get_base_path()}data/data-*.csv"
     files = glob.glob(path)
@@ -44,8 +44,8 @@ def load_padded_sequences():
                     ]
                 current_path.append(mov)
                 if int(row["click"]) == 1:
-                    if len(current_path) > 5 and len(current_path) <= MAX_SEQ_LEN:
-                        pad_len = max(MAX_SEQ_LEN - len(current_path), 0)
+                    if len(current_path) <= MAX_SEQ_LEN:
+                        pad_len = MAX_SEQ_LEN - len(current_path)
                         padded_path = current_path + [[0.0, 0.0]] * pad_len
                         all_sequences.append(padded_path)
                         all_conditions.append(initial_condition)
@@ -63,16 +63,12 @@ class GANMonitor(tf.keras.callbacks.Callback):
         self.latent_dim = latent_dim
         self.plot_every = plot_every
         self.loaded_epoch = actual_epoch
-        # Criamos uma condição fixa para ver como o mesmo movimento evolui
-        # Alvo em 0.5, 0.5 com botão de tamanho padrão
         self.test_cond = np.array([[0.5, 0.5, 0.05, 0.03]], dtype=np.float32)
-
         if not os.path.exists(f"{get_base_path()}plots"):
             os.makedirs(self.plots_path)
 
     def on_epoch_end(self, epoch, logs=None):
         real_epoch = self.loaded_epoch + epoch + 1
-
         if (real_epoch) % self.plot_every == 0:
             off_x, off_y, bw, bh = self.test_cond[0]
             noise = tf.random.normal(shape=(1, self.latent_dim))
@@ -96,18 +92,12 @@ class GANMonitor(tf.keras.callbacks.Callback):
             plt.grid(True, linestyle='--', alpha=0.5)
             plt.savefig(f"{get_base_path()}plots/{real_epoch}.png")
             plt.close()
-
         print("\n\n")
         print(f"REAL EPOCH: {real_epoch}")
-
         self.model.generator.save(f"{get_base_path()}models/{real_epoch}/mouse_gan_generator.keras")
         self.model.discriminator.save(f"{get_base_path()}models/{real_epoch}/mouse_gan_discriminator.keras")
         with open(f"{get_base_path()}models/{real_epoch}/info.json", "w+") as f:
             printable_logs = {k: float(v) if hasattr(v, 'numpy') or isinstance(v, np.generic) else v for k, v in logs.items()}
             print(printable_logs)
             json.dump(printable_logs, f, indent=4)
-
-        print("\n\n")
-
-print(tf.config.list_physical_devices('GPU'))
-print("Cuda Disponível:", tf.test.is_built_with_cuda())
+        print("\n")

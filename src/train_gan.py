@@ -206,6 +206,9 @@ class MouseGAN(models.Model):
         }
 
 if __name__ == "__main__":
+    print(tf.config.list_physical_devices('GPU'))
+    print("Cuda Disponível:", tf.test.is_built_with_cuda())
+
     X_seq, X_cond = load_padded_sequences()
     generator = None
     discriminator = None
