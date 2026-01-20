@@ -1,6 +1,5 @@
 #modules
-from utils import calc_degree_btw_vecs, calc_vec_magnitude
-from utils import print_sorted_dict
+from utils import calc_degree_btw_vecs, calc_vec_magnitude, print_sorted_dict, get_base_path
 #libs
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,14 +11,10 @@ import csv
 import os
 
 def collect_paths(plot:bool=False) -> list:
-    path = "data/good/data-*.csv"
-    if not os.path.exists(path):
-        path = "../" + path
+    path = f"{get_base_path()}data/good/data-*.csv"
     files = glob.glob(path)
-
     paths = []
     actual_path = []
-
     for file in files:
          with open(file, newline="") as f:
             reader = csv.DictReader(f)

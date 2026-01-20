@@ -1,5 +1,5 @@
 #modules
-from utils import print_sorted_dict
+from utils import print_sorted_dict, get_base_path
 #libs
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,9 +11,7 @@ import random
 import os
 
 def get_ticks_inside_btn_until_click() -> None:
-    path = "data/data-*.csv"
-    if not os.path.exists(path):
-        path = "../" + path
+    path = f"{get_base_path()}data/data-*.csv"
     data = {}
     files = glob.glob(path)
     for file in files:

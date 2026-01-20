@@ -1,5 +1,5 @@
 #modules
-from utils import get_mouse_pos
+from utils import get_mouse_pos, get_base_path
 #libs
 import tkinter as tk
 import keyboard
@@ -114,9 +114,7 @@ class App:
         #a captação deve ser feita em intervalos iguais
         try:
             id = str(time.time()).replace(".", "")
-            name = f"data/data-{id}.csv"
-            if not os.path.exists("data"):
-                name = "../" + name
+            name = f"{get_base_path()}data/data-{id}.csv"
             with open(name, "w+", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([

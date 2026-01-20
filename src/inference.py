@@ -1,5 +1,5 @@
 #modules
-from utils import get_mouse_pos, mov_mouse, click_mouse
+from utils import get_mouse_pos, mov_mouse, click_mouse, get_base_path
 from enums import ModelType
 from ticks_inside_btn_until_click import random_ticks_inside_btn
 #libs
@@ -56,11 +56,9 @@ class App:
 
     def ai_thread(self):
         if MODEL_TYPE == ModelType.MLP:
-            MODEL_PATH = "models/mouse_mlp.keras"
+            MODEL_PATH = f"{get_base_path()}models/mouse_mlp.keras"
         if MODEL_TYPE == ModelType.RNN:
-            MODEL_PATH = "models/mouse_rnn.keras"
-        if not os.path.exists(MODEL_PATH):
-            MODEL_PATH = "../" + MODEL_PATH
+            MODEL_PATH = f"{get_base_path()}models/mouse_rnn.keras"
         model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 
         btn_size_m = 1

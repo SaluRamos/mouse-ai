@@ -44,10 +44,7 @@ def load_padded_sequences():
                     ]
                 current_path.append(mov)
                 if int(row["click"]) == 1:
-                    # Filtra paths muito curtos (ruído) ou muito longos
                     if len(current_path) > 5 and len(current_path) <= MAX_SEQ_LEN:
-                        # Padding: Preenche o restante com (0,0) até chegar em MAX_SEQ_LEN
-                        # Isso ensina a rede que o movimento deve "parar"
                         pad_len = max(MAX_SEQ_LEN - len(current_path), 0)
                         padded_path = current_path + [[0.0, 0.0]] * pad_len
                         all_sequences.append(padded_path)
