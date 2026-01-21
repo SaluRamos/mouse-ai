@@ -6,9 +6,9 @@ import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers
 import matplotlib.pyplot as plt
 
-EPOCH_TO_LOAD = 0
+EPOCH_TO_LOAD = 640
 LOAD_BEST = False
-LOAD_DISCRIMINATOR = False
+LOAD_DISCRIMINATOR = True
 
 LATENT_DIM = 100
 BATCH_SIZE = 32
@@ -19,6 +19,9 @@ DISCRIMINATOR_LEARNING_RATE:float = 0.0004
 
 AABB_DISTANCE_LOSS_MULT:float = 1.0
 AABB_FIXED_LOSS:float = 1.0
+
+REAL_LOSS_MULT = 2.0
+FAKE_LOSS_MULT = 1.0
 
 MAX_ACCURACY = 0.8
 DISCRIMINATOR_DROPOUT:float = 0.2
@@ -31,6 +34,7 @@ def build_generator() -> models.Model:
     noise_input = layers.Input(shape=(LATENT_DIM,), name="noise_input")
     cond_input = layers.Input(shape=(COND_DIM,), name="cond_input")
 
+    # simple LSTM
     # x = layers.Concatenate()([noise_input, cond_input])
     # x = layers.RepeatVector(MAX_SEQ_LEN)(x)
     # x = layers.LSTM(128, return_sequences=True)(x)
@@ -38,30 +42,32 @@ def build_generator() -> models.Model:
     # output = layers.TimeDistributed(layers.Dense(FEATURE_DIM, activation="linear"))(x)
     # model = models.Model([noise_input, cond_input], output, name="Generator")
 
-    # combined = layers.Concatenate()([noise_input, cond_input])
-    # x = layers.Dense(256, activation="leaky_relu")(combined)
-    # x = layers.BatchNormalization()(x)
-    # x = layers.Dense(512, activation="leaky_relu")(x)
-    # x = layers.RepeatVector(MAX_SEQ_LEN)(x)
-    # x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
-    # x = layers.BatchNormalization()(x)
-    # x = layers.LSTM(128, return_sequences=True)(x)
-    # x = layers.LSTM(64, return_sequences=True)(x)
-    # x = layers.TimeDistributed(layers.Dense(64, activation="leaky_relu"))(x)
-    # output = layers.TimeDistributed(layers.Dense(FEATURE_DIM, activation="linear"))(x)
-    # model = models.Model([noise_input, cond_input], output, name="Generator_Pro")
-
+    # robust LSTM
     x = layers.Concatenate()([noise_input, cond_input])
-    x = layers.Dense(256)(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.Dense(256, activation="leaky_relu")(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Dense(512)(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.Dense(512, activation="leaky_relu")(x)
+    x = layers.RepeatVector(MAX_SEQ_LEN)(x)
+    x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
     x = layers.BatchNormalization()(x)
-    total_output_size = MAX_SEQ_LEN * FEATURE_DIM
-    x = layers.Dense(total_output_size, activation="linear")(x)
-    output = layers.Reshape((MAX_SEQ_LEN, FEATURE_DIM), name="seq_output")(x)
-    model = models.Model([noise_input, cond_input], output, name="MLP_Generator")
+    x = layers.LSTM(128, return_sequences=True)(x)
+    x = layers.LSTM(64, return_sequences=True)(x)
+    x = layers.TimeDistributed(layers.Dense(64, activation="leaky_relu"))(x)
+    output = layers.TimeDistributed(layers.Dense(FEATURE_DIM, activation="linear"))(x)
+    model = models.Model([noise_input, cond_input], output, name="Generator_Pro")
+
+    #MLP
+    # x = layers.Concatenate()([noise_input, cond_input])
+    # x = layers.Dense(256)(x)
+    # x = layers.LeakyReLU(alpha=0.2)(x)
+    # x = layers.BatchNormalization()(x)
+    # x = layers.Dense(512)(x)
+    # x = layers.LeakyReLU(alpha=0.2)(x)
+    # x = layers.BatchNormalization()(x)
+    # total_output_size = MAX_SEQ_LEN * FEATURE_DIM
+    # x = layers.Dense(total_output_size, activation="linear")(x)
+    # output = layers.Reshape((MAX_SEQ_LEN, FEATURE_DIM), name="seq_output")(x)
+    # model = models.Model([noise_input, cond_input], output, name="MLP_Generator")
 
     return model
 
@@ -114,27 +120,27 @@ class MouseGAN(models.Model):
         conditions = tf.cast(conditions, tf.float32)
         batch_size = tf.shape(real_seqs)[0]
 
-        random_latent_vectors = tf.random.normal(shape=(batch_size, LATENT_DIM))
-        generated_seqs = self.generator([random_latent_vectors, conditions])
+        random_latent_vectors = tf.random.normal(shape=(batch_size, LATENT_DIM)) #gera ruído puro, adicionar FEATURE_DIM é irrelevante
+        generated_seqs = self.generator([random_latent_vectors, conditions]) #inferencia do gerador
 
-        pred_real_pre = self.discriminator([real_seqs, conditions], training=False)
-        pred_fake_pre = self.discriminator([generated_seqs, conditions], training=False)
-        acc_real_pre = tf.reduce_mean(tf.cast(pred_real_pre > 0.5, tf.float32))
-        acc_fake_pre = tf.reduce_mean(tf.cast(pred_fake_pre <= 0.5, tf.float32))
-        avg_acc = (acc_real_pre + acc_fake_pre) / 2.0
+        pred_real_pre = self.discriminator([real_seqs, conditions], training=False) #inferencia com dados reais
+        pred_fake_pre = self.discriminator([generated_seqs, conditions], training=False) #inferencia com dados falsos
+        acc_real_pre = tf.reduce_mean(tf.cast(pred_real_pre > 0.5, tf.float32)) #calculo de acuracia sob dados reais
+        acc_fake_pre = tf.reduce_mean(tf.cast(pred_fake_pre <= 0.5, tf.float32)) #calculo de acuracia so dados falsos
+        avg_acc = (acc_real_pre + acc_fake_pre) / 2.0 #acuracia média
         d_train_condition = tf.cast(tf.less(avg_acc, MAX_ACCURACY), tf.float32)
 
         # dynamic_smoothing = 0.9 - (acc_real_pre * 0.2) 
         # labels_real = tf.ones((batch_size, 1)) * dynamic_smoothing
-        labels_real = tf.ones((batch_size, 1)) * 0.9
-        labels_fake = tf.zeros((batch_size, 1)) * 0.1
+        labels_real = tf.ones((batch_size, 1)) * 0.9 #resposta esperada do discriminador sob dados reais
+        labels_fake = tf.zeros((batch_size, 1)) * 0.1 #resposta esperada do discriminador sob dados falsos
 
         with tf.GradientTape() as tape:
             pred_real = self.discriminator([real_seqs, conditions])
             pred_fake = self.discriminator([generated_seqs, conditions])
-            d_loss_real = self.loss_fn(labels_real, pred_real)
-            d_loss_fake = self.loss_fn(labels_fake, pred_fake)
-            d_loss = d_loss_real + d_loss_fake
+            d_loss_real = self.loss_fn(labels_real, pred_real) #calcula erro das respostas sob dados reais
+            d_loss_fake = self.loss_fn(labels_fake, pred_fake) #calcula erro das respostas sob dados falsos
+            d_loss = d_loss_real*REAL_LOSS_MULT + d_loss_fake*FAKE_LOSS_MULT #soma erro do discriminador
 
         acc_real = tf.reduce_mean(tf.cast(pred_real > 0.5, tf.float32))
         acc_fake = tf.reduce_mean(tf.cast(pred_fake <= 0.5, tf.float32))
@@ -145,16 +151,16 @@ class MouseGAN(models.Model):
         self.d_optimizer.apply_gradients(zip(d_grads, self.discriminator.trainable_weights))
 
         # Treinar Gerador
-        misleading_labels = tf.ones((batch_size, 1))
+        misleading_labels = tf.ones((batch_size, 1)) #resposta esperada do discriminador sob dados do gerador
 
         with tf.GradientTape() as tape:
             # Gerar sequências dentro do tape
             generated_seqs = self.generator([random_latent_vectors, conditions])
-            pred_fake = self.discriminator([generated_seqs, conditions])
-            g_gan_loss = self.loss_fn(misleading_labels, pred_fake)
+            pred_fake = self.discriminator([generated_seqs, conditions]) #inferencia com dados do gerador
+            g_gan_loss = self.loss_fn(misleading_labels, pred_fake) #calcula erro das resposta do gerador
             g_loss = g_gan_loss
             # Adiciona a loss do gerador a distancia do menor caminho até o botão
-            path_final_position = tf.reduce_sum(generated_seqs[:, :, :2], axis=1)
+            path_final_position = tf.reduce_sum(generated_seqs[:, :, :2], axis=1) #soma todos os mov para obter a posição final
             px = path_final_position[:, 0]
             py = path_final_position[:, 1]
             target_x = conditions[:, 0]
